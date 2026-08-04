@@ -1,6 +1,7 @@
 #include "Lua_Scripts_Manager.hpp"
 
 #include "lua_manager.hpp"
+#include "logger.hpp"
 
 namespace big::lua
 {
@@ -12,24 +13,51 @@ namespace big::lua
 
 	void Lua_Scripts_Manager::Initialize(std::filesystem::path scripts_directory)
 	{
-		m_directory = scripts_directory.empty() ? std::filesystem::current_path() / "scripts" : std::move(scripts_directory);
 		std::error_code error;
+		m_directory = scripts_directory.empty()
+			? std::filesystem::current_path(error) / "scripts"
+			: std::move(scripts_directory);
+
+		if (error)
+			m_directory = "scripts";
+
 		std::filesystem::create_directories(m_directory, error);
+		if (error)
+			LOG_ERROR("Failed to create Lua scripts directory {}: {}", m_directory.string(), error.message());
+
+		m_directory = std::filesystem::weakly_canonical(m_directory, error);
+		if (error)
+			m_directory = m_directory.lexically_normal();
+
 		Refresh();
 	}
 
 	void Lua_Scripts_Manager::Refresh()
 	{
 		m_scripts.clear();
+		if (m_directory.empty())
+			Initialize();
+
 		std::error_code error;
-		for (const auto& entry : std::filesystem::directory_iterator(m_directory, error))
+		std::filesystem::directory_iterator iterator(m_directory, error);
+		if (error)
 		{
-			if (error)
-				break;
-			if (!entry.is_regular_file() || entry.path().extension() != ".lua")
+			LOG_ERROR("Failed to scan Lua scripts directory {}: {}", m_directory.string(), error.message());
+			return;
+		}
+
+		for (const auto& entry : iterator)
+		{
+			if (!entry.is_regular_file(error) || error)
+			{
+				error.clear();
+				continue;
+			}
+
+			if (entry.path().extension() != ".lua")
 				continue;
 
-			m_scripts.push_back({entry.path(), g_lua_manager && g_lua_manager->is_loaded(entry.path())});
+			m_scripts.push_back({entry.path().lexically_normal(), g_lua_manager && g_lua_manager->is_loaded(entry.path())});
 		}
 
 		std::sort(m_scripts.begin(), m_scripts.end(), [](const auto& left, const auto& right)
@@ -48,21 +76,29 @@ namespace big::lua
 
 		std::string error;
 		const bool loaded = g_lua_manager->load_script(m_scripts[index].path, sandbox, error);
-		status = loaded ? "Loaded " + m_scripts[index].path.filename().string() : error;
+		status = loaded ? "Loaded " + m_scripts[index].path.filename().string() : "Load failed: " + error;
 		Refresh();
 		return loaded;
 	}
 
 	bool Lua_Scripts_Manager::Reload(std::size_t index, bool sandbox, std::string& status)
 	{
-		if (index >= m_scripts.size())
+		if (!g_lua_manager || index >= m_scripts.size())
 		{
-			status = "Invalid script selection.";
+			status = "Lua manager is unavailable or the selection is invalid.";
 			return false;
 		}
-		if (g_lua_manager)
-			g_lua_manager->unload_script(m_scripts[index].path);
-		return Load(index, sandbox, status);
+
+		std::string error;
+		bool reloaded{};
+		if (g_lua_manager->is_loaded(m_scripts[index].path))
+			reloaded = g_lua_manager->reload_script(m_scripts[index].path, error);
+		else
+			reloaded = g_lua_manager->load_script(m_scripts[index].path, sandbox, error);
+
+		status = reloaded ? "Reloaded " + m_scripts[index].path.filename().string() : "Reload failed: " + error;
+		Refresh();
+		return reloaded;
 	}
 
 	bool Lua_Scripts_Manager::Unload(std::size_t index, std::string& status)
