@@ -152,7 +152,7 @@ namespace big
 	bool Image_Loader_Manager::Contains(const std::string& name) const noexcept
 	{
 		std::scoped_lock lock(m_mutex);
-		return m_images.contains(NormalizeName(name));
+		return m_images.find(NormalizeName(name)) != m_images.end();
 	}
 
 	std::size_t Image_Loader_Manager::Count() const noexcept
@@ -172,8 +172,8 @@ namespace big
 		std::scoped_lock lock(m_mutex);
 		std::vector<std::string> names;
 		names.reserve(m_images.size());
-		for (const auto& [name, image] : m_images)
-			names.push_back(name);
+		for (const auto& entry : m_images)
+			names.push_back(entry.first);
 
 		std::sort(names.begin(), names.end());
 		return names;
