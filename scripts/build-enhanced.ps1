@@ -5,16 +5,29 @@ param(
     [ValidateSet("vs2019", "vs2022")]
     [string]$Generator = "vs2022",
 
-    [string]$ImGuiVersion = "v1.92.8"
+    [string]$ImGuiVersion = "v1.92.8",
+    [string]$FmtVersion = "12.1.0",
+    [string]$JsonVersion = "v3.12.0",
+    [string]$MinHookVersion = "v1.3.4",
+    [string]$StackWalkerCommit = "7af402408202a5c00021fd57e18e39e7e6f11062",
+    [string]$Sol2Version = "v3.3.0",
+    [string]$LuaVersion = "5.4.8"
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-Write-Host "[1/6] Synchronizing Dear ImGui $ImGuiVersion..."
-& "$PSScriptRoot\update-imgui.ps1" -Version $ImGuiVersion
-if ($LASTEXITCODE -ne 0) { throw "Dear ImGui synchronization failed." }
+Write-Host "[1/6] Synchronizing vendor dependencies..."
+& "$PSScriptRoot\update-vendors.ps1" `
+    -ImGuiVersion $ImGuiVersion `
+    -FmtVersion $FmtVersion `
+    -JsonVersion $JsonVersion `
+    -MinHookVersion $MinHookVersion `
+    -StackWalkerCommit $StackWalkerCommit `
+    -Sol2Version $Sol2Version `
+    -LuaVersion $LuaVersion
+if ($LASTEXITCODE -ne 0) { throw "Vendor dependency synchronization failed." }
 
 Write-Host "[2/6] Synchronizing YimMenuV2 Enhanced native table..."
 py tools/natives/sync_yimmenuv2_crossmap.py `
@@ -76,4 +89,4 @@ Write-Host "[6/6] Building $Configuration x64..."
 & $msbuild $solution.FullName /m /p:Configuration=$Configuration /p:Platform=x64 /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { throw "MSBuild failed." }
 
-Write-Host "Enhanced build completed successfully with Dear ImGui $ImGuiVersion." -ForegroundColor Green
+Write-Host "Enhanced build completed successfully with validated vendor dependencies." -ForegroundColor Green
