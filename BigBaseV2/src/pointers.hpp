@@ -20,8 +20,12 @@ namespace big
 		CPedFactory **m_ped_factory{};
 		CNetworkPlayerMgr **m_network_player_mgr{};
 
+		// Legacy registration lookup is retained temporarily for diagnostics.
 		rage::scrNativeRegistrationTable *m_native_registration_table{};
 		functions::get_native_handler_t m_get_native_handler{};
+
+		// GTA V Enhanced populates an ordered hash array through this routine.
+		functions::init_native_tables_t m_init_native_tables{};
 		functions::fix_vectors_t m_fix_vectors{};
 
 		rage::atArray<GtaThread*> *m_script_threads{};
