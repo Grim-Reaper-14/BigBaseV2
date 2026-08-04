@@ -1,24 +1,38 @@
 #pragma once
+
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
 #include <vector>
+
 #include "fwddec.hpp"
-#include "handle.hpp"
 
 namespace memory
 {
-	class pattern
+	class pattern final
 	{
-		friend pattern_batch;
-		friend range;
-	public:
-		pattern(std::string_view ida_sig);
-		explicit pattern(const void *bytes, std::string_view mask);
+		friend class range;
 
-		inline pattern(const char* ida_sig) :
-			pattern(std::string_view(ida_sig))
-		{}
+	public:
+		explicit pattern(std::string_view ida_signature);
+		pattern(const void* bytes, std::string_view mask);
+
+		pattern(const char* ida_signature) :
+			pattern(std::string_view(ida_signature ? ida_signature : ""))
+		{
+		}
+
+		[[nodiscard]] bool empty() const noexcept
+		{
+			return m_bytes.empty();
+		}
+
+		[[nodiscard]] std::size_t size() const noexcept
+		{
+			return m_bytes.size();
+		}
+
 	private:
 		std::vector<std::optional<std::uint8_t>> m_bytes;
 	};
