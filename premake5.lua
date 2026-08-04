@@ -74,11 +74,7 @@ workspace "BigBaseV2"
       "vendor/%{prj.name}/examples/imgui_impl_win32.cpp"
     }
 
-    includedirs
-    {
-      "vendor/%{prj.name}"
-    }
-
+    includedirs { "vendor/%{prj.name}" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -86,21 +82,10 @@ workspace "BigBaseV2"
     location "vendor/%{prj.name}"
     kind "StaticLib"
     language "C++"
-
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
-
-    files
-    {
-      "vendor/%{prj.name}/include/**.h",
-      "vendor/%{prj.name}/src/**.cc"
-    }
-
-    includedirs
-    {
-      "vendor/%{prj.name}/include"
-    }
-
+    files { "vendor/%{prj.name}/include/**.h", "vendor/%{prj.name}/src/**.cc" }
+    includedirs { "vendor/%{prj.name}/include" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -108,20 +93,10 @@ workspace "BigBaseV2"
     location "vendor/%{prj.name}"
     kind "StaticLib"
     language "C++"
-  
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
-
-    files
-    {
-      "vendor/%{prj.name}/Main/StackWalker/StackWalker.cpp"
-    }
-
-    includedirs
-    {
-      "vendor/%{prj.name}/include"
-    }
-
+    files { "vendor/%{prj.name}/Main/StackWalker/StackWalker.cpp" }
+    includedirs { "vendor/%{prj.name}/include" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -129,17 +104,9 @@ workspace "BigBaseV2"
     location "vendor/%{prj.name}"
     kind "StaticLib"
     language "C"
-
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
-
-    files
-    {
-      "vendor/%{prj.name}/include/**.h",
-      "vendor/%{prj.name}/src/**.h",
-      "vendor/%{prj.name}/src/**.c"
-    }
-
+    files { "vendor/%{prj.name}/include/**.h", "vendor/%{prj.name}/src/**.h", "vendor/%{prj.name}/src/**.c" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -147,33 +114,12 @@ workspace "BigBaseV2"
     location "vendor/%{prj.name}"
     kind "StaticLib"
     language "C"
-
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
-
-    files
-    {
-      "vendor/lua/src/**.h",
-      "vendor/lua/src/**.c"
-    }
-
-    removefiles
-    {
-      "vendor/lua/src/lua.c",
-      "vendor/lua/src/luac.c",
-      "vendor/lua/src/onelua.c"
-    }
-
-    includedirs
-    {
-      "%{IncludeDir.Lua}"
-    }
-
-    defines
-    {
-      "LUA_COMPAT_5_3"
-    }
-
+    files { "vendor/lua/src/**.h", "vendor/lua/src/**.c" }
+    removefiles { "vendor/lua/src/lua.c", "vendor/lua/src/luac.c", "vendor/lua/src/onelua.c" }
+    includedirs { "%{IncludeDir.Lua}" }
+    defines { "LUA_COMPAT_5_3" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -181,63 +127,39 @@ workspace "BigBaseV2"
     location "BigBaseV2"
     kind "SharedLib"
     language "C++"
-
     targetdir ("bin/" .. outputdir)
     objdir ("bin/int/" .. outputdir .. "/%{prj.name}")
 
     PrecompiledHeaderInclude = "common.hpp"
     PrecompiledHeaderSource = "%{prj.name}/src/common.cpp"
  
-    files
-    {
-      "%{prj.name}/src/**.hpp",
-      "%{prj.name}/src/**.cpp",
-      "%{prj.name}/src/**.asm"
-    }
+    files { "%{prj.name}/src/**.hpp", "%{prj.name}/src/**.cpp", "%{prj.name}/src/**.asm" }
 
     includedirs
     {
-      "%{IncludeDir.fmtlib}",
-      "%{IncludeDir.json}",
-      "%{IncludeDir.MinHook}",
-      "%{IncludeDir.ImGui}",
-      "%{IncludeDir.ImGuiImpl}",
-      "%{IncludeDir.StackWalker}",
-      "%{IncludeDir.Lua}",
-      "%{IncludeDir.Sol2}",
-      "%{prj.name}/src"
+      "%{IncludeDir.fmtlib}", "%{IncludeDir.json}", "%{IncludeDir.MinHook}",
+      "%{IncludeDir.ImGui}", "%{IncludeDir.ImGuiImpl}", "%{IncludeDir.StackWalker}",
+      "%{IncludeDir.Lua}", "%{IncludeDir.Sol2}", "%{prj.name}/src"
     }
 
-    libdirs
-    {
-      "bin/lib"
-    }
-
-    links
-    {
-      "fmtlib",
-      "MinHook",
-      "ImGui",
-      "StackWalker",
-      "Lua"
-    }
+    libdirs { "bin/lib" }
+    links { "fmtlib", "MinHook", "ImGui", "StackWalker", "Lua" }
 
     pchheader "%{PrecompiledHeaderInclude}"
     pchsource "%{PrecompiledHeaderSource}"
+    forceincludes { "%{PrecompiledHeaderInclude}" }
 
-    forceincludes
+    prebuildcommands
     {
-      "%{PrecompiledHeaderInclude}"
+      "py \"%{wks.location}/tools/natives/sync_yimmenuv2_crossmap.py\" --output \"%{wks.location}/BigBaseV2/src/crossmap_enhanced.hpp\""
     }
 
     DeclareMSVCOptions()
     DeclareDebugOptions()
-
     flags { "NoImportLib", "Maps" }
 
     filter "configurations:Debug"
       defines { "BIGBASEV2_DEBUG" }
-
     filter "configurations:Release"
       defines { "BIGBASEV2_RELEASE" }
       optimize "speed"
