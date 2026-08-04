@@ -22,8 +22,8 @@ workspace "BigBaseV2"
   IncludeDir["Sol2"] = "vendor/sol2/include"
   
   CppVersion = "C++17"
-  MsvcToolset = "v142"
-  WindowsSdkVersion = "10.0"
+  MsvcToolset = "v143"
+  WindowsSdkVersion = "latest"
   
   function DeclareMSVCOptions()
     filter "system:windows"
@@ -37,7 +37,7 @@ workspace "BigBaseV2"
       "_CRT_SECURE_NO_WARNINGS",
       "NOMINMAX",
       "WIN32_LEAN_AND_MEAN",
-      "_WIN32_WINNT=0x601"
+      "_WIN32_WINNT=0x0A00"
     }
     
     disablewarnings
@@ -148,11 +148,6 @@ workspace "BigBaseV2"
     pchheader "%{PrecompiledHeaderInclude}"
     pchsource "%{PrecompiledHeaderSource}"
     forceincludes { "%{PrecompiledHeaderInclude}" }
-
-    prebuildcommands
-    {
-      "py \"%{wks.location}/tools/natives/sync_yimmenuv2_crossmap.py\" --output \"%{wks.location}/BigBaseV2/src/crossmap_enhanced.hpp\""
-    }
 
     DeclareMSVCOptions()
     DeclareDebugOptions()
