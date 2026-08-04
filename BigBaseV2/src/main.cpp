@@ -1,9 +1,10 @@
-﻿#include "common.hpp"
+#include "common.hpp"
 #include "features.hpp"
 #include "fiber_pool.hpp"
 #include "gui.hpp"
 #include "logger.hpp"
 #include "hooking.hpp"
+#include "lua/lua_manager.hpp"
 #include "pointers.hpp"
 #include "renderer.hpp"
 #include "script_mgr.hpp"
@@ -21,9 +22,8 @@ BOOL APIENTRY DllMain(HMODULE hmod, DWORD reason, PVOID)
 			auto logger_instance = std::make_unique<logger>();
 			try
 			{
-				
 				LOG_RAW(log_color::green | log_color::intensify,
-u8R"kek(                     ...
+	u8R"kek(                     ...
                    ;::::;
                  ;::::; :;
                ;:::::'   :;
@@ -46,7 +46,7 @@ u8R"kek(                     ...
          ::::::`:::::;'  /  /   `#
 
 )kek");
-				
+
 				auto pointers_instance = std::make_unique<pointers>();
 				LOG_INFO("Pointers initialized.");
 
@@ -71,11 +71,15 @@ u8R"kek(                     ...
 				auto fiber_pool_instance = std::make_unique<fiber_pool>(10);
 				LOG_INFO("Fiber pool initialized.");
 
+				g_lua_manager = std::make_unique<lua_manager>();
+				LOG_INFO("Sol2 Lua manager initialized.");
+
 				auto hooking_instance = std::make_unique<hooking>();
 				LOG_INFO("Hooking initialized.");
 
 				g_script_mgr.add_script(std::make_unique<script>(&features::script_func));
 				g_script_mgr.add_script(std::make_unique<script>(&gui::script_func));
+				g_script_mgr.add_script(std::make_unique<script>(&lua_manager::script_func));
 				LOG_INFO("Scripts registered.");
 
 				g_hooking->enable();
@@ -98,6 +102,9 @@ u8R"kek(                     ...
 				g_script_mgr.remove_all_scripts();
 				LOG_INFO("Scripts unregistered.");
 
+				g_lua_manager.reset();
+				LOG_INFO("Sol2 Lua manager uninitialized.");
+
 				hooking_instance.reset();
 				LOG_INFO("Hooking uninitialized.");
 
@@ -110,7 +117,7 @@ u8R"kek(                     ...
 				pointers_instance.reset();
 				LOG_INFO("Pointers uninitialized.");
 			}
-			catch (std::exception const &ex)
+			catch (std::exception const& ex)
 			{
 				LOG_ERROR("{}", ex.what());
 				MessageBoxA(nullptr, ex.what(), nullptr, MB_OK | MB_ICONEXCLAMATION);
