@@ -2,6 +2,8 @@
 
 #include "common.hpp"
 
+#include <unordered_map>
+
 namespace big::lua
 {
 	class Lua_commands final
