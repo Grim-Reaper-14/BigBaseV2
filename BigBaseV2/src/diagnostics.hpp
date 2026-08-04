@@ -30,7 +30,7 @@ namespace big
 		result.pointers_ready = g_pointers && g_pointers->core_ready() && g_pointers->scripts_ready();
 		result.renderer_ready = g_renderer && g_renderer->ready();
 		result.hooks_enabled = g_hooking && g_hooking->enabled();
-		result.native_cache_healthy = g_native_invoker.cache_healthy();
+		result.native_cache_healthy = g_native_invoker.ready();
 		result.native_cached = g_native_invoker.cache_stats().cached;
 		result.native_missing = g_native_invoker.cache_stats().missing;
 		result.scripts_registered = g_script_mgr.size();
