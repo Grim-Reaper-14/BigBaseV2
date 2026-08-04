@@ -9,6 +9,7 @@
 #include <any>
 #include <array>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cinttypes>
 #include <cstddef>
@@ -22,6 +23,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <new>
