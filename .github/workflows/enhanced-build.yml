@@ -22,9 +22,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Premake
+      - name: Install Premake 5
         shell: powershell
-        run: choco install premake5 -y --no-progress
+        run: |
+          $version = "5.0.0-beta8"
+          $archive = "$env:RUNNER_TEMP\premake.zip"
+          $directory = "$env:RUNNER_TEMP\premake"
+          Invoke-WebRequest `
+            -Uri "https://github.com/premake/premake-core/releases/download/v$version/premake-$version-windows.zip" `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $directory -Force
+          $directory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Synchronize Enhanced native table
         shell: powershell
@@ -36,12 +44,17 @@ jobs:
       - name: Validate generated table
         shell: powershell
         run: |
-          if (-not (Test-Path BigBaseV2/src/crossmap_enhanced.hpp)) {
+          $path = "BigBaseV2/src/crossmap_enhanced.hpp"
+          if (-not (Test-Path $path)) {
             throw "crossmap_enhanced.hpp was not generated"
           }
-          $content = Get-Content BigBaseV2/src/crossmap_enhanced.hpp -Raw
+          $content = Get-Content $path -Raw
           if ($content -notmatch "std::array<rage::scrNativeHash, 6720>") {
             throw "Generated table does not contain 6720 hashes"
+          }
+          $hashCount = ([regex]::Matches($content, "0x[0-9A-Fa-f]{1,16}")).Count
+          if ($hashCount -ne 6720) {
+            throw "Expected 6720 hashes but found $hashCount"
           }
 
       - name: Generate Visual Studio solution
