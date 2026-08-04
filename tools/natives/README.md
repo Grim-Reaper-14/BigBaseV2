@@ -5,106 +5,127 @@ This BigBaseV2 branch targets **GTAV Enhanced only**.
 ```text
 Edition: GTAV Enhanced
 Executable: GTA5_Enhanced.exe
-Crossmap build prefix: enhanced-
+Native table source: YimMenu/YimMenuV2 enhanced branch
 ```
 
-Do not import a Legacy `GTA5.exe` crossmap into this branch.
+Do not import Legacy `GTA5.exe` native mappings into this branch.
 
-BigBaseV2 originally shipped with native wrappers generated in February 2019 and a fixed `crossmap.hpp`. Those files must be treated as versioned build data.
+## Enhanced native architecture
 
-## Important distinction
+YimMenuV2 Enhanced does not use the old pair-based crossmap format. Its
+`Crossmap.hpp` is an ordered array of original native hashes. GTA Enhanced's
+`InitNativeTables` routine rewrites those array entries into native handler
+pointers.
 
-- `natives.hpp` contains typed C++ wrappers, original native hashes, names, parameters, and return types.
-- `crossmap.hpp` maps those original hashes to registration hashes for one specific executable build/edition.
+BigBaseV2 now follows that architecture while preserving its existing typed,
+hash-based wrapper API:
 
-Updating only `natives.hpp` does not update the runtime mappings. Updating only `crossmap.hpp` does not add new wrappers or corrected signatures.
+1. Copy the ordered Enhanced hashes into handler-sized storage.
+2. Pass a temporary `rage::scrProgram` to `InitNativeTables`.
+3. Let the game replace each hash with its native handler.
+4. Build BigBaseV2's original-hash to handler cache from the populated array.
 
-Enhanced crossmaps must be generated for the exact `GTA5_Enhanced.exe` build being tested.
-
-## 1. Generate current NativeDB wrappers
+## 1. Synchronize YimMenuV2's Enhanced table
 
 From the repository root:
+
+```powershell
+py tools/natives/sync_yimmenuv2_crossmap.py
+```
+
+This downloads the official file from:
+
+```text
+YimMenu/YimMenuV2
+branch: enhanced
+src/game/gta/invoker/Crossmap.hpp
+```
+
+It validates the declared entry count, rejects zero or duplicate hashes, and
+writes:
+
+```text
+BigBaseV2/src/crossmap_enhanced.hpp
+```
+
+For an offline or reviewed source copy:
+
+```powershell
+py tools/natives/sync_yimmenuv2_crossmap.py `
+  --input tools/natives/data/YimMenuV2-Crossmap.hpp `
+  --source-ref "YimMenu/YimMenuV2:COMMIT_SHA"
+```
+
+Pin a reviewed commit SHA for release builds rather than relying on a moving
+branch head.
+
+## 2. Generate current typed NativeDB wrappers
+
+The ordered hash table resolves handlers, while `natives.hpp` defines C++
+function names, parameters, return types, and original hashes. Refresh those
+separately:
 
 ```powershell
 py tools/natives/generate_natives.py
 ```
 
-This downloads alloc8or's public NativeDB and writes:
+This writes:
 
 ```text
 BigBaseV2/src/natives.generated.hpp
 ```
 
-To use a reviewed local database instead:
+To use a reviewed local NativeDB file:
 
 ```powershell
 py tools/natives/generate_natives.py --input tools/natives/data/natives.json
 ```
 
-Review unknown parameter types and compile the generated header before replacing `BigBaseV2/src/natives.hpp`.
-
-## 2. Import an Enhanced build-specific crossmap
-
-The importer accepts JSON or CSV pairs:
-
-```json
-{
-  "0xORIGINAL_HASH": "0xCURRENT_REGISTRATION_HASH"
-}
-```
-
-or:
-
-```text
-0xORIGINAL_HASH,0xCURRENT_REGISTRATION_HASH
-```
-
-Generate the header:
-
-```powershell
-py tools/natives/import_crossmap.py tools/natives/data/crossmap.json `
-  --edition enhanced `
-  --executable GTA5_Enhanced.exe `
-  --game-build enhanced-BUILD_NUMBER `
-  --source "SOURCE NAME AND REVISION"
-```
-
-The importer refuses to write a crossmap when:
-
-- the edition is not `enhanced`;
-- the executable is not `GTA5_Enhanced.exe`;
-- the build label does not begin with `enhanced-`;
-- an original hash maps to conflicting current hashes;
-- a hash is zero, malformed, or wider than 64 bits;
-- the mapping does not cover the hashes referenced by `natives.hpp`.
-
-Use `--allow-missing` only while investigating a new Enhanced build, never for a release build.
+Review unknown parameter types and compile the generated header before replacing
+`BigBaseV2/src/natives.hpp`.
 
 ## 3. Runtime validation
 
-`native_invoker::cache_handlers()` reports:
+`native_invoker::cache_handlers()` now reports:
 
-- total mappings;
-- cached handlers;
+- ordered Enhanced hash count;
+- successfully populated handlers;
 - missing handlers;
 - duplicate original hashes;
-- direct-original-hash fallbacks.
+- YimMenuV2 source URL and source reference.
 
-A non-zero missing count means the Enhanced crossmap, native registration pointer, or executable build is wrong. Do not continue testing gameplay features until the cache is healthy.
+When `crossmap_enhanced.hpp` is absent, BigBaseV2 remains compilable but native
+execution is disabled with this instruction in the log:
 
-## 4. Required Enhanced update checklist
+```text
+py tools/natives/sync_yimmenuv2_crossmap.py
+```
+
+Do not test gameplay features unless the Enhanced native cache reports complete
+and healthy coverage.
+
+## 4. Required update checklist
 
 1. Confirm the running executable is `GTA5_Enhanced.exe`.
-2. Record its Windows file version and game build number.
-3. Obtain a crossmap generated for that exact Enhanced build.
-4. Generate and review typed wrappers from NativeDB.
-5. Import the crossmap without `--allow-missing`.
+2. Record its Windows file version and online version.
+3. Synchronize the official YimMenuV2 Enhanced table.
+4. Record the YimMenuV2 commit SHA used for the release.
+5. Generate and review typed wrappers from NativeDB.
 6. Regenerate the Visual Studio solution.
 7. Build in Debug.
-8. Confirm native-cache startup coverage.
-9. Test harmless natives first: player ID, coordinates, model validation, and UI status.
-10. Only then test state-changing features.
+8. Confirm the `InitNativeTables` pattern resolves.
+9. Confirm every ordered hash receives a non-null handler.
+10. Test harmless natives first: player ID, coordinates, and model validation.
+11. Only then test state-changing features such as spawning or teleporting.
+
+## Legacy pair importer
+
+`import_crossmap.py` is retained only for analyzing historical pair-based tables.
+It is not the preferred GTA V Enhanced runtime path and should not overwrite
+`crossmap_enhanced.hpp`.
 
 ## Source policy
 
-Keep source name, revision/commit, edition, executable, and game build with every imported mapping. Do not accept anonymous crossmap dumps as release data.
+Keep the source repository, branch or commit, executable edition, game version,
+and generated-file timestamp with every native-table update. Do not accept
+anonymous crossmap dumps as release data.
