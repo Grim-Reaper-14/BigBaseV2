@@ -194,7 +194,7 @@ namespace big
 		});
 		api.set_function("log_warning", [](const std::string& message)
 		{
-			LOG_WARNING("[Lua] {}", message);
+			LOG_TRACE("[Lua warning] {}", message);
 		});
 		api.set_function("log_error", [](const std::string& message)
 		{
