@@ -22,5 +22,5 @@ namespace big::menu_pages
 
 	void draw_self();
 	void tick_self();
-	void self_script_func();
+	void reset_self();
 }
