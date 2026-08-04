@@ -1,39 +1,54 @@
 #include "self.hpp"
 
 #include "../../natives.hpp"
+#include "../widgets.hpp"
 
 #include <imgui.h>
 
 namespace big::menu_pages
 {
-	namespace
-	{
-		void draw_atomic_checkbox(const char* label, std::atomic_bool& value)
-		{
-			bool current = value.load(std::memory_order_relaxed);
-			if (ImGui::Checkbox(label, &current))
-				value.store(current, std::memory_order_relaxed);
-		}
-	}
-
 	void draw_self()
 	{
-		ImGui::Text("Self");
-		ImGui::Separator();
+		menu_ui::page_title("Self", "Player protection, movement, appearance, and quality-of-life controls.");
 
-		draw_atomic_checkbox("God Mode", g_self_settings.god_mode);
-		draw_atomic_checkbox("Never Wanted", g_self_settings.never_wanted);
-		draw_atomic_checkbox("No Ragdoll", g_self_settings.no_ragdoll);
-		draw_atomic_checkbox("No Critical Hits", g_self_settings.no_critical_hits);
-		draw_atomic_checkbox("Unlimited Stamina", g_self_settings.unlimited_stamina);
-		draw_atomic_checkbox("Super Jump", g_self_settings.super_jump);
-		draw_atomic_checkbox("Invisible", g_self_settings.invisible);
-		draw_atomic_checkbox("Keep Clean", g_self_settings.keep_clean);
-		draw_atomic_checkbox("Fast Run", g_self_settings.fast_run);
+		const float column_width = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
 
-		float run_multiplier = g_self_settings.run_multiplier.load(std::memory_order_relaxed);
-		if (ImGui::SliderFloat("Run Multiplier", &run_multiplier, 1.0f, 1.49f))
-			g_self_settings.run_multiplier.store(run_multiplier, std::memory_order_relaxed);
+		ImGui::BeginGroup();
+		ImGui::PushItemWidth(column_width);
+		if (menu_ui::begin_section("SelfProtection", "Protection", 225.0f))
+		{
+			menu_ui::toggle("God Mode", g_self_settings.god_mode, "Prevents normal damage from reducing player health.");
+			menu_ui::toggle("Never Wanted", g_self_settings.never_wanted, "Continuously clears the local wanted level.");
+			menu_ui::toggle("No Ragdoll", g_self_settings.no_ragdoll);
+			menu_ui::toggle("No Critical Hits", g_self_settings.no_critical_hits);
+			menu_ui::toggle("Unlimited Stamina", g_self_settings.unlimited_stamina);
+		}
+		menu_ui::end_section();
+		ImGui::PopItemWidth();
+		ImGui::EndGroup();
+
+		ImGui::SameLine();
+		ImGui::BeginGroup();
+		ImGui::PushItemWidth(column_width);
+		if (menu_ui::begin_section("SelfMovement", "Movement", 225.0f))
+		{
+			menu_ui::toggle("Super Jump", g_self_settings.super_jump);
+			menu_ui::toggle("Fast Run", g_self_settings.fast_run);
+			ImGui::BeginDisabled(!g_self_settings.fast_run.load(std::memory_order_relaxed));
+			menu_ui::slider_float("Run Multiplier", g_self_settings.run_multiplier, 1.0f, 1.49f, "%.2fx");
+			ImGui::EndDisabled();
+		}
+		menu_ui::end_section();
+		ImGui::PopItemWidth();
+		ImGui::EndGroup();
+
+		ImGui::Spacing();
+		if (menu_ui::begin_section("SelfAppearance", "Appearance & Maintenance", 135.0f))
+		{
+			menu_ui::toggle("Invisible", g_self_settings.invisible, "Hides the local player entity while enabled.");
+			menu_ui::toggle("Keep Clean", g_self_settings.keep_clean, "Continuously clears blood damage from the player model.");
+		}
+		menu_ui::end_section();
 	}
 
 	void tick_self()
