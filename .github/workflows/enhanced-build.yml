@@ -1,0 +1,56 @@
+name: GTA V Enhanced Build
+
+on:
+  push:
+    branches:
+      - feature/new-menu-base
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-enhanced:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Premake
+        shell: powershell
+        run: choco install premake5 -y --no-progress
+
+      - name: Synchronize Enhanced native table
+        shell: powershell
+        run: |
+          py tools/natives/sync_yimmenuv2_crossmap.py `
+            --output BigBaseV2/src/crossmap_enhanced.hpp `
+            --source-ref "YimMenu/YimMenuV2:enhanced"
+
+      - name: Validate generated table
+        shell: powershell
+        run: |
+          if (-not (Test-Path BigBaseV2/src/crossmap_enhanced.hpp)) {
+            throw "crossmap_enhanced.hpp was not generated"
+          }
+          $content = Get-Content BigBaseV2/src/crossmap_enhanced.hpp -Raw
+          if ($content -notmatch "std::array<rage::scrNativeHash, 6720>") {
+            throw "Generated table does not contain 6720 hashes"
+          }
+
+      - name: Generate Visual Studio solution
+        shell: powershell
+        run: premake5 vs2022
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Debug x64
+        shell: powershell
+        run: msbuild BigBaseV2.sln /m /p:Configuration=Debug /p:Platform=x64 /verbosity:minimal
