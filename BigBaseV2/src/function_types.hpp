@@ -3,9 +3,15 @@
 #include "gta/fwddec.hpp"
 #include "gta/natives.hpp"
 
+namespace rage
+{
+	struct scrProgram;
+}
+
 namespace big::functions
 {
 	using run_script_threads_t = bool(*)(std::uint32_t ops_to_execute);
 	using get_native_handler_t = rage::scrNativeHandler(*)(rage::scrNativeRegistrationTable*, rage::scrNativeHash);
+	using init_native_tables_t = void(*)(rage::scrProgram* program);
 	using fix_vectors_t = void(*)(rage::scrNativeCallContext*);
 }
