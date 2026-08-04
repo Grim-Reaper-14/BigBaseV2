@@ -143,7 +143,7 @@ workspace "BigBaseV2"
     }
 
     libdirs { "bin/lib" }
-    links { "fmtlib", "MinHook", "ImGui", "StackWalker", "Lua" }
+    links { "fmtlib", "MinHook", "ImGui", "StackWalker", "Lua", "windowscodecs", "ole32" }
 
     pchheader "%{PrecompiledHeaderInclude}"
     pchsource "%{PrecompiledHeaderSource}"
