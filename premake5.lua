@@ -17,14 +17,14 @@ workspace "BigBaseV2"
   IncludeDir["MinHook"] = "vendor/MinHook/include"
   IncludeDir["ImGui"] = "vendor/ImGui"
   IncludeDir["ImGuiImpl"] = "vendor/ImGui/backends"
-  IncludeDir["StackWalker"] = "vendor/StackWalker/Main/StackWalker/"
+  IncludeDir["StackWalker"] = "vendor/StackWalker/Main/StackWalker"
   IncludeDir["Lua"] = "vendor/lua/src"
   IncludeDir["Sol2"] = "vendor/sol2/include"
-  
+
   CppVersion = "C++17"
   MsvcToolset = "v143"
   WindowsSdkVersion = "latest"
-  
+
   function DeclareMSVCOptions()
     filter "system:windows"
     staticruntime "Off"
@@ -39,7 +39,7 @@ workspace "BigBaseV2"
       "WIN32_LEAN_AND_MEAN",
       "_WIN32_WINNT=0x0A00"
     }
-    
+
     disablewarnings
     {
       "4100",
@@ -47,7 +47,7 @@ workspace "BigBaseV2"
       "4307"
     }
   end
-   
+
   function DeclareDebugOptions()
     filter "configurations:Debug"
       defines { "_DEBUG" }
@@ -55,7 +55,7 @@ workspace "BigBaseV2"
     filter "not configurations:Debug"
       defines { "NDEBUG" }
   end
-   
+
   project "ImGui"
     location "vendor/%{prj.name}"
     kind "StaticLib"
@@ -63,7 +63,7 @@ workspace "BigBaseV2"
 
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
-    
+
     files
     {
       "vendor/%{prj.name}/imgui.cpp",
@@ -101,7 +101,7 @@ workspace "BigBaseV2"
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
     files { "vendor/%{prj.name}/Main/StackWalker/StackWalker.cpp" }
-    includedirs { "vendor/%{prj.name}/include" }
+    includedirs { "%{IncludeDir.StackWalker}" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -112,6 +112,7 @@ workspace "BigBaseV2"
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
     files { "vendor/%{prj.name}/include/**.h", "vendor/%{prj.name}/src/**.h", "vendor/%{prj.name}/src/**.c" }
+    includedirs { "%{IncludeDir.MinHook}" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -124,7 +125,7 @@ workspace "BigBaseV2"
     files { "vendor/lua/src/**.h", "vendor/lua/src/**.c" }
     removefiles { "vendor/lua/src/lua.c", "vendor/lua/src/luac.c", "vendor/lua/src/onelua.c" }
     includedirs { "%{IncludeDir.Lua}" }
-    defines { "LUA_COMPAT_5_3" }
+    defines { "LUA_COMPAT_5_3", "LUA_USE_WINDOWS" }
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -137,7 +138,7 @@ workspace "BigBaseV2"
 
     PrecompiledHeaderInclude = "common.hpp"
     PrecompiledHeaderSource = "%{prj.name}/src/common.cpp"
- 
+
     files { "%{prj.name}/src/**.hpp", "%{prj.name}/src/**.cpp", "%{prj.name}/src/**.asm" }
 
     includedirs
@@ -147,8 +148,18 @@ workspace "BigBaseV2"
       "%{IncludeDir.Lua}", "%{IncludeDir.Sol2}", "%{prj.name}/src"
     }
 
-    libdirs { "bin/lib" }
-    links { "fmtlib", "MinHook", "ImGui", "StackWalker", "Lua", "windowscodecs", "ole32" }
+    links
+    {
+      "fmtlib",
+      "MinHook",
+      "ImGui",
+      "StackWalker",
+      "Lua",
+      "dbghelp",
+      "version",
+      "windowscodecs",
+      "ole32"
+    }
 
     pchheader "%{PrecompiledHeaderInclude}"
     pchsource "%{PrecompiledHeaderSource}"
