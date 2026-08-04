@@ -1,5 +1,7 @@
 #include "lua.hpp"
 
+#include "../../lua/lua_manager.hpp"
+
 #include <imgui.h>
 
 namespace big::menu_pages
@@ -9,9 +11,7 @@ namespace big::menu_pages
 		m_scripts.clear();
 
 		if (m_scripts_directory.empty())
-		{
 			m_scripts_directory = std::filesystem::current_path() / "scripts";
-		}
 
 		std::error_code error;
 		std::filesystem::create_directories(m_scripts_directory, error);
@@ -42,7 +42,10 @@ namespace big::menu_pages
 		if (selected_index >= static_cast<int>(m_scripts.size()))
 			selected_index = -1;
 
-		status = "Lua runtime is not installed yet.";
+		if (error)
+			status = "Failed to scan scripts directory: " + error.message();
+		else
+			status = "Script list refreshed.";
 	}
 
 	const std::filesystem::path& lua_page_state::scripts_directory() const noexcept
@@ -64,7 +67,7 @@ namespace big::menu_pages
 			initialized = true;
 		}
 
-		ImGui::Text("Lua Manager");
+		ImGui::Text("Lua Manager (Sol2)");
 		ImGui::Separator();
 		ImGui::TextWrapped("Scripts directory: %s", g_lua_page.scripts_directory().string().c_str());
 
@@ -72,17 +75,26 @@ namespace big::menu_pages
 			g_lua_page.refresh();
 
 		ImGui::SameLine();
-		ImGui::TextDisabled("%d script(s)", static_cast<int>(g_lua_page.scripts().size()));
+		ImGui::TextDisabled("%d found", static_cast<int>(g_lua_page.scripts().size()));
+
+		const auto loaded_count = g_lua_manager ? g_lua_manager->loaded_count() : 0;
+		ImGui::SameLine();
+		ImGui::TextDisabled("%d loaded", static_cast<int>(loaded_count));
 
 		ImGui::Checkbox("Sandbox Scripts", &g_lua_page.sandbox_scripts);
 		ImGui::Checkbox("Auto Reload", &g_lua_page.auto_reload);
+		if (g_lua_page.auto_reload)
+			ImGui::TextDisabled("Auto Reload tracking will be added after the base runtime is validated.");
 
 		ImGui::BeginChild("LuaScripts", ImVec2(0.0f, 220.0f), true);
 		for (int index = 0; index < static_cast<int>(g_lua_page.scripts().size()); ++index)
 		{
-			const auto& script = g_lua_page.scripts()[index];
+			const auto& script_entry = g_lua_page.scripts()[index];
 			const bool selected = g_lua_page.selected_index == index;
-			if (ImGui::Selectable(script.path.filename().string().c_str(), selected))
+			const bool loaded = g_lua_manager && g_lua_manager->is_loaded(script_entry.path);
+			const std::string label = script_entry.path.filename().string() + (loaded ? " [loaded]" : "");
+
+			if (ImGui::Selectable(label.c_str(), selected))
 				g_lua_page.selected_index = index;
 		}
 
@@ -93,13 +105,38 @@ namespace big::menu_pages
 		const bool has_selection = g_lua_page.selected_index >= 0 &&
 			g_lua_page.selected_index < static_cast<int>(g_lua_page.scripts().size());
 
-		if (has_selection)
+		if (has_selection && g_lua_manager)
 		{
+			const auto& selected_script = g_lua_page.scripts()[g_lua_page.selected_index].path;
+
 			if (ImGui::Button("Load Selected"))
-				g_lua_page.status = "Lua runtime is not installed; script was not loaded.";
+			{
+				std::string error;
+				if (g_lua_manager->load_script(selected_script, g_lua_page.sandbox_scripts, error))
+					g_lua_page.status = "Loaded " + selected_script.filename().string();
+				else
+					g_lua_page.status = "Load failed: " + error;
+			}
+
 			ImGui::SameLine();
 			if (ImGui::Button("Unload Selected"))
-				g_lua_page.status = "Lua runtime is not installed; no script is loaded.";
+			{
+				if (g_lua_manager->unload_script(selected_script))
+					g_lua_page.status = "Unloaded " + selected_script.filename().string();
+				else
+					g_lua_page.status = "The selected script is not loaded.";
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Unload All"))
+			{
+				g_lua_manager->unload_all();
+				g_lua_page.status = "All Lua scripts unloaded.";
+			}
+		}
+		else if (!g_lua_manager)
+		{
+			ImGui::TextDisabled("Sol2 runtime is not initialized.");
 		}
 		else
 		{
