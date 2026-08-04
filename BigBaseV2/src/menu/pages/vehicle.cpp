@@ -9,17 +9,21 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstring>
 
 namespace big::menu_pages
 {
 	namespace
 	{
-		constexpr std::uint32_t joaat(std::string_view value) noexcept
+		std::uint32_t joaat(std::string_view value) noexcept
 		{
 			std::uint32_t hash{};
 			for (char character : value)
 			{
-				hash += static_cast<std::uint8_t>(std::tolower(static_cast<unsigned char>(character)));
+				const auto lowered = static_cast<std::uint8_t>(
+					character >= 'A' && character <= 'Z' ? character + ('a' - 'A') : character);
+
+				hash += lowered;
 				hash += hash << 10;
 				hash ^= hash >> 6;
 			}
@@ -52,7 +56,10 @@ namespace big::menu_pages
 		void set_preset(const char* model)
 		{
 			std::fill(g_vehicle_settings.spawn_model.begin(), g_vehicle_settings.spawn_model.end(), '\0');
-			std::copy_n(model, std::min<std::size_t>(std::strlen(model), g_vehicle_settings.spawn_model.size() - 1), g_vehicle_settings.spawn_model.begin());
+			std::copy_n(
+				model,
+				std::min<std::size_t>(std::strlen(model), g_vehicle_settings.spawn_model.size() - 1),
+				g_vehicle_settings.spawn_model.begin());
 		}
 	}
 
@@ -160,7 +167,9 @@ namespace big::menu_pages
 				g_vehicle_settings.spawn_networked);
 		}
 		ImGui::SameLine();
-		ImGui::TextDisabled("Status: %s", status_text(g_vehicle_settings.spawn_status.load(std::memory_order_relaxed)));
+		ImGui::TextDisabled(
+			"Status: %s",
+			status_text(g_vehicle_settings.spawn_status.load(std::memory_order_relaxed)));
 
 		ImGui::Spacing();
 		ImGui::TextDisabled("Protection");
