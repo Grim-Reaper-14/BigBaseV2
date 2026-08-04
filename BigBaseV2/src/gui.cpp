@@ -1,30 +1,24 @@
 #include "common.hpp"
-#include "fiber_pool.hpp"
-#include "gta/player.hpp"
-#include "gta_util.hpp"
 #include "gui.hpp"
-#include "logger.hpp"
-#include "memory/module.hpp"
-#include "memory/pattern.hpp"
+#include "menu.hpp"
+#include "menu/pages/self.hpp"
+#include "menu/runtime.hpp"
 #include "natives.hpp"
-#include "pointers.hpp"
-#include "renderer.hpp"
 #include "script.hpp"
 
 #include <imgui.h>
-#include <StackWalker.h>
 
 namespace big
 {
 	void gui::dx_init()
 	{
-		auto &style = ImGui::GetStyle();
-		style.WindowPadding = { 10.f, 10.f };
+		auto& style = ImGui::GetStyle();
+		style.WindowPadding = {10.f, 10.f};
 		style.PopupRounding = 0.f;
-		style.FramePadding = { 8.f, 4.f };
-		style.ItemSpacing = { 10.f, 8.f };
-		style.ItemInnerSpacing = { 6.f, 6.f };
-		style.TouchExtraPadding = { 0.f, 0.f };
+		style.FramePadding = {8.f, 4.f};
+		style.ItemSpacing = {10.f, 8.f};
+		style.ItemInnerSpacing = {6.f, 6.f};
+		style.TouchExtraPadding = {0.f, 0.f};
 		style.IndentSpacing = 21.f;
 		style.ScrollbarSize = 15.f;
 		style.GrabMinSize = 8.f;
@@ -39,11 +33,11 @@ namespace big
 		style.ScrollbarRounding = 0.f;
 		style.GrabRounding = 0.f;
 		style.TabRounding = 0.f;
-		style.WindowTitleAlign = { 0.5f, 0.5f };
-		style.ButtonTextAlign = { 0.5f, 0.5f };
-		style.DisplaySafeAreaPadding = { 3.f, 3.f };
+		style.WindowTitleAlign = {0.5f, 0.5f};
+		style.ButtonTextAlign = {0.5f, 0.5f};
+		style.DisplaySafeAreaPadding = {3.f, 3.f};
 
-		auto &colors = style.Colors;
+		auto& colors = style.Colors;
 		colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
 		colors[ImGuiCol_TextDisabled] = ImVec4(1.00f, 0.90f, 0.19f, 1.00f);
 		colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.06f, 1.00f);
@@ -96,56 +90,7 @@ namespace big
 
 	void gui::dx_on_tick()
 	{
-		if (ImGui::Begin("BigBaseV2"))
-		{
-			static bool demo_bool = true;
-			static int demo_int = 1;
-			static float demo_float = 1.f;
-
-			static const char *demo_combo[]
-			{
-				"One",
-				"Two",
-				"Three"
-			};
-			static int demo_combo_pos = 0;
-
-			ImGui::Checkbox("Bool", &demo_bool);
-			ImGui::SliderInt("Int", &demo_int, 0, 10);
-			ImGui::SliderFloat("Float", &demo_float, 0.f, 10.f);
-			ImGui::Combo("Combo", &demo_combo_pos, demo_combo, sizeof(demo_combo) / sizeof(*demo_combo));
-
-			if (ImGui::Button("Spawn a vehicle"))
-			{
-				g_fiber_pool->queue_job([]
-				{
-					constexpr auto hash = RAGE_JOAAT("adder");
-					while (!STREAMING::HAS_MODEL_LOADED(hash))
-					{
-						STREAMING::REQUEST_MODEL(hash);
-						script::get_current()->yield();
-					}
-
-					auto pos = ENTITY::GET_ENTITY_COORDS(PLAYER::PLAYER_PED_ID(), true);
-					auto vehicle = VEHICLE::CREATE_VEHICLE(hash, pos.x, pos.y, pos.z, 0.f, true, true);
-					
-					if (*g_pointers->m_is_session_started)
-					{
-						DECORATOR::DECOR_SET_INT(vehicle, "MPBitset", 0);
-					}
-
-					STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(hash);
-				});
-			}
-
-			ImGui::Separator();
-
-			if (ImGui::Button("Unload"))
-			{
-				g_running = false;
-			}
-		}
-		ImGui::End();
+		g_menu.draw();
 	}
 
 	void gui::script_init()
@@ -154,19 +99,24 @@ namespace big
 
 	void gui::script_on_tick()
 	{
-		if (g_gui.m_opened)
-		{
+		menu_pages::tick_self();
+
+		if (g_gui.m_opened && menu_runtime::disable_game_controls.load(std::memory_order_relaxed))
 			CONTROLS::DISABLE_ALL_CONTROL_ACTIONS(0);
-		}
+
+		if (menu_runtime::consume_unload_request())
+			g_running = false;
 	}
 
 	void gui::script_func()
 	{
 		g_gui.script_init();
-		while (true)
+		while (g_running)
 		{
 			g_gui.script_on_tick();
 			script::get_current()->yield();
 		}
+
+		menu_pages::reset_self();
 	}
 }
