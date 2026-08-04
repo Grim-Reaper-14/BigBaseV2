@@ -2,6 +2,8 @@
 
 #include "common.hpp"
 
+#include <imgui.h>
+
 namespace big
 {
 	class Image_Loader final
