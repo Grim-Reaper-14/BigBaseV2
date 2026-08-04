@@ -15,7 +15,8 @@ namespace big
 			teleport,
 			world,
 			players,
-			settings
+			settings,
+			lua
 		};
 
 		void draw();
