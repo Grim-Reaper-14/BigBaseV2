@@ -1,4 +1,5 @@
 #include "common.hpp"
+#include "configuration.hpp"
 #include "features.hpp"
 #include "fiber_pool.hpp"
 #include "gui.hpp"
@@ -53,6 +54,12 @@ namespace big
 			{
 				print_banner();
 
+				std::string configuration_status;
+				if (!g_configuration.initialize(configuration_status))
+					LOG_WARNING("{}", configuration_status);
+				else
+					LOG_INFO("{}", configuration_status);
+
 				pointers_instance = std::make_unique<pointers>();
 				LOG_INFO("Pointers initialized.");
 
@@ -97,7 +104,7 @@ namespace big
 
 				while (g_running)
 				{
-					if (GetAsyncKeyState(VK_END) & 1)
+					if (GetAsyncKeyState(g_configuration.values().unload_key) & 1)
 						g_running = false;
 
 					g_hooking->ensure_dynamic_hooks();
@@ -121,6 +128,15 @@ namespace big
 			{
 				g_hooking->disable();
 				LOG_INFO("Hooking disabled.");
+			}
+
+			if (g_configuration.values().autosave)
+			{
+				std::string save_status;
+				if (!g_configuration.save(g_configuration.active_profile(), save_status))
+					LOG_WARNING("{}", save_status);
+				else
+					LOG_INFO("{}", save_status);
 			}
 
 			std::this_thread::sleep_for(250ms);
