@@ -41,7 +41,7 @@ namespace memory
 		pattern_batch& operator=(pattern_batch&&) noexcept = default;
 
 		void add(std::string name, pattern signature, std::function<void(handle)> callback);
-		[[nodiscard]] run_result run(const range& region, bool throw_on_failure = true);
+		run_result run(const range& region, bool throw_on_failure = true);
 		void clear() noexcept;
 
 		[[nodiscard]] std::size_t size() const noexcept
