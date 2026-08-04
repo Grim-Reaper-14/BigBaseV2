@@ -1,23 +1,16 @@
 #pragma once
 
-#include <filesystem>
+#include <chrono>
 #include <string>
-#include <vector>
 
 namespace big::menu_pages
 {
-	struct lua_script_entry final
-	{
-		std::filesystem::path path;
-	};
-
 	class lua_page_state final
 	{
 	public:
+		void initialize();
 		void refresh();
-
-		[[nodiscard]] const std::filesystem::path& scripts_directory() const noexcept;
-		[[nodiscard]] const std::vector<lua_script_entry>& scripts() const noexcept;
+		void tick_auto_reload();
 
 		int selected_index{-1};
 		bool sandbox_scripts{true};
@@ -25,8 +18,8 @@ namespace big::menu_pages
 		std::string status{"Sol2 runtime ready."};
 
 	private:
-		std::filesystem::path m_scripts_directory;
-		std::vector<lua_script_entry> m_scripts;
+		bool m_initialized{};
+		std::chrono::steady_clock::time_point m_next_auto_reload_check{};
 	};
 
 	inline lua_page_state g_lua_page;
