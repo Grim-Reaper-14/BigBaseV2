@@ -1,4 +1,5 @@
 #include "common.hpp"
+#include "configuration.hpp"
 #include "fonts.hpp"
 #include "gui.hpp"
 #include "logger.hpp"
@@ -61,6 +62,22 @@ namespace big
 		}
 
 		g_gui.dx_init();
+
+		const auto& configuration = g_configuration.values();
+		auto& style = ImGui::GetStyle();
+		style.WindowRounding = configuration.window_rounding;
+		style.ChildRounding = configuration.window_rounding;
+		style.FrameRounding = configuration.frame_rounding;
+		style.GrabRounding = configuration.frame_rounding;
+		style.ScrollbarRounding = configuration.frame_rounding;
+		const ImVec4 accent(configuration.accent[0], configuration.accent[1], configuration.accent[2], configuration.accent[3]);
+		style.Colors[ImGuiCol_CheckMark] = accent;
+		style.Colors[ImGuiCol_SliderGrab] = accent;
+		style.Colors[ImGuiCol_SliderGrabActive] = accent;
+		style.Colors[ImGuiCol_HeaderActive] = accent;
+		style.Colors[ImGuiCol_ResizeGripActive] = accent;
+		style.Colors[ImGuiCol_NavHighlight] = accent;
+
 		m_initialized = true;
 		g_renderer = this;
 	}
@@ -128,7 +145,7 @@ namespace big
 		if (!m_initialized || !ImGui::GetCurrentContext())
 			return;
 
-		if (message == WM_KEYUP && wparam == VK_INSERT)
+		if (message == WM_KEYUP && static_cast<int>(wparam) == g_configuration.values().menu_key)
 			g_gui.m_opened = !g_gui.m_opened;
 
 		if (g_gui.m_opened)
