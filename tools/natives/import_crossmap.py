@@ -6,8 +6,8 @@ Accepted input formats:
 - JSON object: {"0xOLD": "0xNEW", ...}
 - CSV/TXT: OLD_HASH,NEW_HASH (comments beginning with # are ignored)
 
-This tool validates duplicates, zero hashes, malformed values, and optional
-coverage against hashes parsed from BigBaseV2/src/natives.hpp.
+This project targets GTA5_Enhanced.exe. The importer requires Enhanced edition
+metadata and refuses Legacy/generic build labels.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from typing import Iterable
 
 HASH_RE = re.compile(r"0x[0-9A-Fa-f]{1,16}")
 NATIVE_HASH_RE = re.compile(r"invoke<[^>]+>\(\s*(0x[0-9A-Fa-f]{1,16})")
+ENHANCED_BUILD_RE = re.compile(r"enhanced-[A-Za-z0-9._-]+", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -96,13 +97,22 @@ def validate(mappings: list[Mapping]) -> list[Mapping]:
     return [Mapping(original, current) for original, current in sorted(originals.items())]
 
 
+def validate_target(edition: str, executable: str, game_build: str) -> None:
+    if edition.lower() != "enhanced":
+        raise ValueError("This BigBaseV2 branch only accepts --edition enhanced")
+    if executable.lower() != "gta5_enhanced.exe":
+        raise ValueError("Expected --executable GTA5_Enhanced.exe")
+    if not ENHANCED_BUILD_RE.fullmatch(game_build):
+        raise ValueError("--game-build must begin with enhanced-, for example enhanced-3717")
+
+
 def native_hashes(path: Path) -> set[int]:
     if not path.exists():
         return set()
     return {int(match, 16) for match in NATIVE_HASH_RE.findall(path.read_text(encoding="utf-8"))}
 
 
-def render(mappings: list[Mapping], game_build: str, source: str) -> str:
+def render(mappings: list[Mapping], game_build: str, source: str, executable: str) -> str:
     rows = "\n".join(
         f"\t\t{{ 0x{item.original:016X}, 0x{item.current:016X} }}," for item in mappings
     )
@@ -111,6 +121,8 @@ def render(mappings: list[Mapping], game_build: str, source: str) -> str:
 
 namespace big
 {{
+\tinline constexpr const char* g_crossmap_edition = "enhanced";
+\tinline constexpr const char* g_crossmap_executable = "{executable}";
 \tinline constexpr const char* g_crossmap_game_build = "{game_build}";
 \tinline constexpr const char* g_crossmap_source = "{source}";
 \tinline constexpr const rage::scrNativeMapping g_crossmap[]
@@ -126,16 +138,21 @@ def main() -> int:
     parser.add_argument("input", type=Path, help="Build-specific JSON/CSV mapping file")
     parser.add_argument("--output", type=Path, default=Path("BigBaseV2/src/crossmap.hpp"))
     parser.add_argument("--natives", type=Path, default=Path("BigBaseV2/src/natives.hpp"))
+    parser.add_argument("--edition", required=True, choices=("enhanced",))
+    parser.add_argument("--executable", default="GTA5_Enhanced.exe")
     parser.add_argument("--game-build", required=True, help="Example: enhanced-3717")
     parser.add_argument("--source", required=True, help="Mapping source/version description")
     parser.add_argument("--allow-missing", action="store_true")
     args = parser.parse_args()
 
+    validate_target(args.edition, args.executable, args.game_build)
     mappings = validate(read_mappings(args.input))
     mapped_hashes = {mapping.original for mapping in mappings}
     wrappers = native_hashes(args.natives)
     missing = sorted(wrappers - mapped_hashes)
 
+    print("Target edition: GTAV Enhanced")
+    print(f"Target executable: {args.executable}")
     print(f"Mappings: {len(mappings)}")
     print(f"Wrapper hashes: {len(wrappers)}")
     print(f"Missing wrapper mappings: {len(missing)}")
@@ -145,7 +162,10 @@ def main() -> int:
         raise SystemExit(f"Crossmap does not cover natives.hpp. First missing hashes: {preview}")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render(mappings, args.game_build, args.source), encoding="utf-8")
+    args.output.write_text(
+        render(mappings, args.game_build, args.source, args.executable),
+        encoding="utf-8",
+    )
     print(f"Wrote {args.output}")
     return 0
 
