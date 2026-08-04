@@ -3,23 +3,44 @@
 
 namespace big
 {
-	class script
+	class script final
 	{
 	public:
 		using func_t = void(*)();
-	public:
+		using clock = std::chrono::steady_clock;
+
 		explicit script(func_t func, std::optional<std::size_t> stack_size = std::nullopt);
 		~script();
 
+		script(const script&) = delete;
+		script(script&&) = delete;
+		script& operator=(const script&) = delete;
+		script& operator=(script&&) = delete;
+
 		void tick();
-		void yield(std::optional<std::chrono::high_resolution_clock::duration> time = std::nullopt);
-		static script *get_current();
+		void yield(std::optional<clock::duration> time = std::nullopt);
+
+		[[nodiscard]] bool finished() const noexcept
+		{
+			return m_finished;
+		}
+
+		[[nodiscard]] bool faulted() const noexcept
+		{
+			return m_faulted;
+		}
+
+		[[nodiscard]] static script* get_current() noexcept;
+
 	private:
-		void fiber_func();
-	private:
-		void *m_script_fiber;
-		void *m_main_fiber;
-		func_t m_func;
-		std::optional<std::chrono::high_resolution_clock::time_point> m_wake_time;
+		static VOID CALLBACK fiber_entry(void* parameter);
+		void fiber_func() noexcept;
+
+		void* m_script_fiber{};
+		void* m_main_fiber{};
+		func_t m_func{};
+		std::optional<clock::time_point> m_wake_time;
+		bool m_finished{};
+		bool m_faulted{};
 	};
 }
