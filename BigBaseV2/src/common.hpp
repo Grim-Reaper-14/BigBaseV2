@@ -8,6 +8,8 @@
 #include <cinttypes>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 #include <chrono>
 #include <ctime>
@@ -54,7 +56,7 @@
 namespace big
 {
 	using namespace std::chrono_literals;
-	
+
 	template <typename T>
 	using comptr = Microsoft::WRL::ComPtr<T>;
 
@@ -62,14 +64,15 @@ namespace big
 	inline HANDLE g_main_thread{};
 	inline DWORD g_main_thread_id{};
 	inline std::atomic_bool g_running{ true };
-	
+
 	struct stackwalker : public StackWalker
 	{
 		using StackWalker::StackWalker;
 
 		void OnOutput(LPCSTR szText) override
 		{
-			g_logger->raw(log_color::red, szText);
+			if (g_logger != nullptr)
+				g_logger->raw(log_color::red, szText);
 		}
 	};
 
