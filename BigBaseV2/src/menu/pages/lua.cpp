@@ -93,17 +93,18 @@ namespace big::menu_pages
 		const bool has_selection = g_lua_page.selected_index >= 0 &&
 			g_lua_page.selected_index < static_cast<int>(g_lua_page.scripts().size());
 
-		if (!has_selection)
-			ImGui::BeginDisabled();
-
-		if (ImGui::Button("Load Selected"))
-			g_lua_page.status = "Lua runtime is not installed; script was not loaded.";
-		ImGui::SameLine();
-		if (ImGui::Button("Unload Selected"))
-			g_lua_page.status = "Lua runtime is not installed; no script is loaded.";
-
-		if (!has_selection)
-			ImGui::EndDisabled();
+		if (has_selection)
+		{
+			if (ImGui::Button("Load Selected"))
+				g_lua_page.status = "Lua runtime is not installed; script was not loaded.";
+			ImGui::SameLine();
+			if (ImGui::Button("Unload Selected"))
+				g_lua_page.status = "Lua runtime is not installed; no script is loaded.";
+		}
+		else
+		{
+			ImGui::TextDisabled("Select a script to enable load controls.");
+		}
 
 		ImGui::Separator();
 		ImGui::TextWrapped("Status: %s", g_lua_page.status.c_str());
