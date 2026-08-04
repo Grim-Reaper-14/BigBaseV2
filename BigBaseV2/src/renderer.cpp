@@ -2,9 +2,11 @@
 #include "configuration.hpp"
 #include "fonts.hpp"
 #include "gui.hpp"
+#include "Image_Loader_Manager.hpp"
 #include "logger.hpp"
 #include "pointers.hpp"
 #include "renderer.hpp"
+#include "Themes_Manager.hpp"
 
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
@@ -78,6 +80,13 @@ namespace big
 		style.Colors[ImGuiCol_ResizeGripActive] = accent;
 		style.Colors[ImGuiCol_NavHighlight] = accent;
 
+		g_themes_manager.Initialize();
+		g_themes_manager.CaptureCurrent("Configured");
+
+		std::string image_manager_error;
+		if (!g_image_loader_manager.Initialize(m_d3d_device.Get(), image_manager_error))
+			LOG_WARNING("Image loader manager initialization failed: {}", image_manager_error);
+
 		m_initialized = true;
 		g_renderer = this;
 	}
@@ -85,6 +94,7 @@ namespace big
 	renderer::~renderer()
 	{
 		m_initialized = false;
+		g_image_loader_manager.Shutdown();
 
 		if (m_win32_backend_initialized)
 		{
