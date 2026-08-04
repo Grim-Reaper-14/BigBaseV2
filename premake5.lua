@@ -9,7 +9,7 @@ workspace "BigBaseV2"
     "Dist"
   }
 
-  outputdir = "%{cfg.buildcfg}"
+  outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
   IncludeDir = {}
   IncludeDir["fmtlib"] = "vendor/fmtlib/include"
@@ -18,42 +18,55 @@ workspace "BigBaseV2"
   IncludeDir["ImGui"] = "vendor/ImGui"
   IncludeDir["ImGuiImpl"] = "vendor/ImGui/examples"
   IncludeDir["StackWalker"] = "vendor/StackWalker/Main/StackWalker/"
-  
+
   CppVersion = "C++17"
-  MsvcToolset = "v142"
-  WindowsSdkVersion = "10.0"
-  
+  MsvcToolset = "v143"
+  WindowsSdkVersion = "latest"
+
   function DeclareMSVCOptions()
     filter "system:windows"
-    staticruntime "Off"
-    systemversion (WindowsSdkVersion)
-    toolset (MsvcToolset)
-    cppdialect (CppVersion)
+      staticruntime "Off"
+      systemversion (WindowsSdkVersion)
+      toolset (MsvcToolset)
+      cppdialect (CppVersion)
+      characterset "Unicode"
 
-    defines
-    {
-      "_CRT_SECURE_NO_WARNINGS",
-      "NOMINMAX",
-      "WIN32_LEAN_AND_MEAN",
-      "_WIN32_WINNT=0x601" -- Support Windows 7
-    }
-    
-    disablewarnings
-    {
-      "4100", -- C4100: unreferenced formal parameter
-      "4201", -- C4201: nameless struct/union
-      "4307"  -- C4307: integral constant overflow
-    }
+      defines
+      {
+        "_CRT_SECURE_NO_WARNINGS",
+        "NOMINMAX",
+        "WIN32_LEAN_AND_MEAN",
+        "_WIN32_WINNT=0x0A00"
+      }
+
+      buildoptions
+      {
+        "/permissive-",
+        "/Zc:__cplusplus",
+        "/Zc:preprocessor"
+      }
+
+      warnings "Extra"
+
+      disablewarnings
+      {
+        "4100", -- unreferenced formal parameter
+        "4201", -- nameless struct/union
+        "4307"  -- integral constant overflow
+      }
   end
-   
+
   function DeclareDebugOptions()
     filter "configurations:Debug"
       defines { "_DEBUG" }
       symbols "On"
+      runtime "Debug"
+
     filter "not configurations:Debug"
       defines { "NDEBUG" }
+      runtime "Release"
   end
-   
+
   project "ImGui"
     location "vendor/%{prj.name}"
     kind "StaticLib"
@@ -61,7 +74,7 @@ workspace "BigBaseV2"
 
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
-    
+
     files
     {
       "vendor/%{prj.name}/imgui.cpp",
@@ -106,7 +119,7 @@ workspace "BigBaseV2"
     location "vendor/%{prj.name}"
     kind "StaticLib"
     language "C++"
-  
+
     targetdir ("bin/lib/" .. outputdir)
     objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
 
@@ -117,7 +130,7 @@ workspace "BigBaseV2"
 
     includedirs
     {
-      "vendor/%{prj.name}/include"
+      "vendor/%{prj.name}/Main/StackWalker"
     }
 
     DeclareMSVCOptions()
@@ -138,6 +151,11 @@ workspace "BigBaseV2"
       "vendor/%{prj.name}/src/**.c"
     }
 
+    includedirs
+    {
+      "vendor/%{prj.name}/include"
+    }
+
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
@@ -151,7 +169,7 @@ workspace "BigBaseV2"
 
     PrecompiledHeaderInclude = "common.hpp"
     PrecompiledHeaderSource = "%{prj.name}/src/common.cpp"
- 
+
     files
     {
       "%{prj.name}/src/**.hpp",
@@ -170,13 +188,10 @@ workspace "BigBaseV2"
       "%{prj.name}/src"
     }
 
-    libdirs
-    {
-      "bin/lib"
-    }
-
     links
     {
+      "d3d11",
+      "dxgi",
       "fmtlib",
       "MinHook",
       "ImGui",
@@ -201,8 +216,9 @@ workspace "BigBaseV2"
 
     filter "configurations:Release"
       defines { "BIGBASEV2_RELEASE" }
-      optimize "speed"
+      optimize "Speed"
+
     filter "configurations:Dist"
       flags { "LinkTimeOptimization", "FatalCompileWarnings" }
       defines { "BIGBASEV2_DIST" }
-      optimize "speed"
+      optimize "Full"
