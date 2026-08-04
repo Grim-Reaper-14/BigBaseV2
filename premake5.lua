@@ -18,6 +18,8 @@ workspace "BigBaseV2"
   IncludeDir["ImGui"] = "vendor/ImGui"
   IncludeDir["ImGuiImpl"] = "vendor/ImGui/examples"
   IncludeDir["StackWalker"] = "vendor/StackWalker/Main/StackWalker/"
+  IncludeDir["Lua"] = "vendor/lua/src"
+  IncludeDir["Sol2"] = "vendor/sol2/include"
   
   CppVersion = "C++17"
   MsvcToolset = "v142"
@@ -35,14 +37,14 @@ workspace "BigBaseV2"
       "_CRT_SECURE_NO_WARNINGS",
       "NOMINMAX",
       "WIN32_LEAN_AND_MEAN",
-      "_WIN32_WINNT=0x601" -- Support Windows 7
+      "_WIN32_WINNT=0x601"
     }
     
     disablewarnings
     {
-      "4100", -- C4100: unreferenced formal parameter
-      "4201", -- C4201: nameless struct/union
-      "4307"  -- C4307: integral constant overflow
+      "4100",
+      "4201",
+      "4307"
     }
   end
    
@@ -141,6 +143,40 @@ workspace "BigBaseV2"
     DeclareMSVCOptions()
     DeclareDebugOptions()
 
+  project "Lua"
+    location "vendor/%{prj.name}"
+    kind "StaticLib"
+    language "C"
+
+    targetdir ("bin/lib/" .. outputdir)
+    objdir ("bin/lib/int/" .. outputdir .. "/%{prj.name}")
+
+    files
+    {
+      "vendor/lua/src/**.h",
+      "vendor/lua/src/**.c"
+    }
+
+    removefiles
+    {
+      "vendor/lua/src/lua.c",
+      "vendor/lua/src/luac.c",
+      "vendor/lua/src/onelua.c"
+    }
+
+    includedirs
+    {
+      "%{IncludeDir.Lua}"
+    }
+
+    defines
+    {
+      "LUA_COMPAT_5_3"
+    }
+
+    DeclareMSVCOptions()
+    DeclareDebugOptions()
+
   project "BigBaseV2"
     location "BigBaseV2"
     kind "SharedLib"
@@ -167,6 +203,8 @@ workspace "BigBaseV2"
       "%{IncludeDir.ImGui}",
       "%{IncludeDir.ImGuiImpl}",
       "%{IncludeDir.StackWalker}",
+      "%{IncludeDir.Lua}",
+      "%{IncludeDir.Sol2}",
       "%{prj.name}/src"
     }
 
@@ -180,7 +218,8 @@ workspace "BigBaseV2"
       "fmtlib",
       "MinHook",
       "ImGui",
-      "StackWalker"
+      "StackWalker",
+      "Lua"
     }
 
     pchheader "%{PrecompiledHeaderInclude}"
