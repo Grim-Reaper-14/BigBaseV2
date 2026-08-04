@@ -25,7 +25,7 @@ namespace big::menu_pages
 		float acceleration_multiplier{1.0f};
 		float gravity_multiplier{1.0f};
 
-		std::array<char, 64> spawn_model{"adder"};
+		std::array<char, 64> spawn_model{'a', 'd', 'd', 'e', 'r', '\0'};
 		bool spawn_inside{true};
 		bool spawn_networked{true};
 		std::atomic<vehicle_spawn_status> spawn_status{vehicle_spawn_status::idle};
