@@ -4,26 +4,38 @@
 
 namespace big
 {
-	class renderer
+	class renderer final
 	{
 	public:
-		explicit renderer();
+		renderer();
 		~renderer();
 
-		void on_present();
+		renderer(const renderer&) = delete;
+		renderer(renderer&&) = delete;
+		renderer& operator=(const renderer&) = delete;
+		renderer& operator=(renderer&&) = delete;
 
+		void on_present();
 		void pre_reset();
 		void post_reset();
+		void wndproc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
 
-		void wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
-	public:
-		ImFont *m_font;
-		ImFont *m_monospace_font;
+		[[nodiscard]] bool ready() const noexcept
+		{
+			return m_initialized && m_dxgi_swapchain && m_d3d_device && m_d3d_device_context;
+		}
+
+		ImFont* m_font{};
+		ImFont* m_monospace_font{};
+
 	private:
+		bool m_initialized{};
+		bool m_dx11_backend_initialized{};
+		bool m_win32_backend_initialized{};
 		comptr<IDXGISwapChain> m_dxgi_swapchain;
 		comptr<ID3D11Device> m_d3d_device;
 		comptr<ID3D11DeviceContext> m_d3d_device_context;
 	};
 
-	inline renderer *g_renderer{};
+	inline renderer* g_renderer{};
 }
