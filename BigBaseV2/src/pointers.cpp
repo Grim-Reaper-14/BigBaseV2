@@ -29,10 +29,16 @@ namespace big
 			m_network_player_mgr = ptr.add(3).rip().as<CNetworkPlayerMgr**>();
 		});
 
-		main_batch.add("Native handlers", "48 8D 0D ? ? ? ? 48 8B 14 FA E8 ? ? ? ? 48 85 C0 75 0A", [this](memory::handle ptr)
+		main_batch.add("Legacy native handlers", "48 8D 0D ? ? ? ? 48 8B 14 FA E8 ? ? ? ? 48 85 C0 75 0A", [this](memory::handle ptr)
 		{
 			m_native_registration_table = ptr.add(3).rip().as<rage::scrNativeRegistrationTable*>();
 			m_get_native_handler = ptr.add(12).rip().as<functions::get_native_handler_t>();
+		});
+
+		// YimMenuV2 Enhanced: src/game/pointers/Pointers.cpp, InitNativeTables.
+		main_batch.add("Enhanced InitNativeTables", "EB 2A 0F 1F 40 00 48 8B 54 17 10", [this](memory::handle ptr)
+		{
+			m_init_native_tables = ptr.sub(0x2A).as<functions::init_native_tables_t>();
 		});
 
 		main_batch.add("Fix vectors", "83 79 18 00 48 8B D1 74 4A FF 4A 18 48 63 4A 18 48 8D 41 04 48 8B 4C CA", [this](memory::handle ptr)
@@ -67,6 +73,9 @@ namespace big
 		});
 
 		main_batch.run(memory::module(nullptr));
+
+		if (!m_init_native_tables)
+			throw std::runtime_error("Failed to find GTA V Enhanced InitNativeTables.");
 
 		m_hwnd = FindWindowW(L"grcWindow", nullptr);
 		if (!m_hwnd)
