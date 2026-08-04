@@ -5,45 +5,40 @@
 #include <D3D11.h>
 #include <wrl/client.h>
 
+#include <algorithm>
+#include <any>
+#include <array>
+#include <atomic>
+#include <chrono>
 #include <cinttypes>
 #include <cstddef>
 #include <cstdint>
-
-#include <chrono>
-#include <ctime>
-
+#include <cstdlib>
+#include <cstring>
+#include <deque>
+#include <exception>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <functional>
 #include <iomanip>
-
-#include <atomic>
-#include <mutex>
-#include <thread>
-
+#include <iostream>
 #include <memory>
+#include <mutex>
 #include <new>
-
+#include <optional>
+#include <queue>
 #include <sstream>
+#include <stack>
+#include <stdexcept>
 #include <string>
 #include <string_view>
-
-#include <algorithm>
-#include <functional>
-#include <utility>
-
-#include <stack>
-#include <vector>
-
-#include <typeinfo>
+#include <thread>
 #include <type_traits>
-
-#include <exception>
-#include <stdexcept>
-
-#include <any>
-#include <optional>
+#include <typeinfo>
+#include <unordered_map>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
@@ -54,22 +49,25 @@
 namespace big
 {
 	using namespace std::chrono_literals;
-	
+
 	template <typename T>
 	using comptr = Microsoft::WRL::ComPtr<T>;
 
 	inline HMODULE g_hmodule{};
 	inline HANDLE g_main_thread{};
 	inline DWORD g_main_thread_id{};
-	inline std::atomic_bool g_running{ true };
-	
-	struct stackwalker : public StackWalker
+	inline std::atomic_bool g_running{true};
+
+	struct stackwalker final : StackWalker
 	{
 		using StackWalker::StackWalker;
 
-		void OnOutput(LPCSTR szText) override
+		void OnOutput(LPCSTR text) override
 		{
-			g_logger->raw(log_color::red, szText);
+			if (g_logger && text)
+				g_logger->raw(log_color::red | log_color::intensify, text);
+			else if (text)
+				OutputDebugStringA(text);
 		}
 	};
 
