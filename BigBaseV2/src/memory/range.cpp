@@ -1,74 +1,84 @@
 #include "../common.hpp"
-#include "range.hpp"
 #include "pattern.hpp"
+#include "range.hpp"
 
 namespace memory
 {
-	range::range(handle base, std::size_t size) :
-		m_base(base), m_size(size)
+	namespace
 	{
-	}
-
-	handle range::begin()
-	{
-		return m_base;
-	}
-
-	handle range::end()
-	{
-		return m_base.add(m_size);
-	}
-
-	std::size_t range::size()
-	{
-		return m_size;
-	}
-
-	bool range::contains(handle h)
-	{
-		return h.as<std::uintptr_t>() >= begin().as<std::uintptr_t>() && h.as<std::uintptr_t>() <= end().as<std::uintptr_t>();
-	}
-
-	static bool pattern_matches(std::uint8_t* target, const std::optional<std::uint8_t>* sig, std::size_t length)
-	{
-		for (std::size_t i = 0; i < length; ++i)
+		[[nodiscard]] bool pattern_matches(
+			const std::uint8_t* target,
+			const std::optional<std::uint8_t>* signature,
+			std::size_t length) noexcept
 		{
-			if (sig[i] && *sig[i] != target[i])
-				return false;
-		}
-
-		return true;
-	};
-
-	handle range::scan(pattern const &sig)
-	{
-		auto data = sig.m_bytes.data();
-		auto length = sig.m_bytes.size();
-		for (std::uintptr_t i = 0; i < m_size - length; ++i)
-		{
-			if (pattern_matches(m_base.add(i).as<std::uint8_t*>(), data, length))
+			for (std::size_t index = 0; index < length; ++index)
 			{
-				return m_base.add(i);
+				if (signature[index] && *signature[index] != target[index])
+					return false;
 			}
-		}
 
-		return nullptr;
+			return true;
+		}
 	}
 
-	std::vector<handle> range::scan_all(pattern const &sig)
+	bool range::contains(handle address) const noexcept
 	{
-		std::vector<handle> result;
+		if (empty() || !address)
+			return false;
 
-		auto data = sig.m_bytes.data();
-		auto length = sig.m_bytes.size();
-		for (std::uintptr_t i = 0; i < m_size - length; ++i)
+		return address >= begin() && address < end();
+	}
+
+	bool range::contains(handle address, std::size_t length) const noexcept
+	{
+		if (length == 0)
+			return contains(address);
+		if (empty() || !address || length > m_size)
+			return false;
+
+		const auto start = address.value();
+		const auto base = begin().value();
+		if (start < base)
+			return false;
+
+		const auto offset = start - base;
+		return offset <= m_size - length;
+	}
+
+	handle range::scan(const pattern& signature) const noexcept
+	{
+		const auto length = signature.m_bytes.size();
+		if (empty() || length == 0 || length > m_size)
+			return {};
+
+		const auto* bytes = signature.m_bytes.data();
+		const auto last_offset = m_size - length;
+		for (std::size_t offset = 0; offset <= last_offset; ++offset)
 		{
-			if (pattern_matches(m_base.add(i).as<std::uint8_t*>(), data, length))
-			{
-				result.push_back(m_base.add(i));
-			}
+			const auto address = m_base.add(offset);
+			if (pattern_matches(address.as<const std::uint8_t*>(), bytes, length))
+				return address;
 		}
 
-		return std::move(result);
+		return {};
+	}
+
+	std::vector<handle> range::scan_all(const pattern& signature) const
+	{
+		std::vector<handle> results;
+		const auto length = signature.m_bytes.size();
+		if (empty() || length == 0 || length > m_size)
+			return results;
+
+		const auto* bytes = signature.m_bytes.data();
+		const auto last_offset = m_size - length;
+		for (std::size_t offset = 0; offset <= last_offset; ++offset)
+		{
+			const auto address = m_base.add(offset);
+			if (pattern_matches(address.as<const std::uint8_t*>(), bytes, length))
+				results.push_back(address);
+		}
+
+		return results;
 	}
 }
