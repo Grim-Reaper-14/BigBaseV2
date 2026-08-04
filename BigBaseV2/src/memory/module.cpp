@@ -13,19 +13,19 @@ namespace memory
 	{
 	}
 
-	module::module(std::string_view name) noexcept
+	module::module(std::string_view name)
 	{
 		const std::string owned_name(name);
 		initialize(owned_name.empty() ? nullptr : GetModuleHandleA(owned_name.c_str()));
 	}
 
-	module::module(std::wstring_view name) noexcept
+	module::module(std::wstring_view name)
 	{
 		const std::wstring owned_name(name);
 		initialize(owned_name.empty() ? nullptr : GetModuleHandleW(owned_name.c_str()));
 	}
 
-	handle module::get_export(std::string_view symbol_name) const noexcept
+	handle module::get_export(std::string_view symbol_name) const
 	{
 		if (!valid() || symbol_name.empty())
 			return {};
