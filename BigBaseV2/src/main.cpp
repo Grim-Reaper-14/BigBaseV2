@@ -2,27 +2,20 @@
 #include "features.hpp"
 #include "fiber_pool.hpp"
 #include "gui.hpp"
-#include "logger.hpp"
 #include "hooking.hpp"
+#include "logger.hpp"
 #include "lua/lua_manager.hpp"
 #include "pointers.hpp"
 #include "renderer.hpp"
 #include "script_mgr.hpp"
 
-BOOL APIENTRY DllMain(HMODULE hmod, DWORD reason, PVOID)
+namespace big
 {
-	using namespace big;
-	if (reason == DLL_PROCESS_ATTACH)
+	namespace
 	{
-		DisableThreadLibraryCalls(hmod);
-
-		g_hmodule = hmod;
-		g_main_thread = CreateThread(nullptr, 0, [](PVOID) -> DWORD
+		void print_banner()
 		{
-			auto logger_instance = std::make_unique<logger>();
-			try
-			{
-				LOG_RAW(log_color::green | log_color::intensify,
+			LOG_RAW(log_color::green | log_color::intensify,
 	u8R"kek(                     ...
                    ;::::;
                  ;::::; :;
@@ -46,17 +39,34 @@ BOOL APIENTRY DllMain(HMODULE hmod, DWORD reason, PVOID)
          ::::::`:::::;'  /  /   `#
 
 )kek");
+		}
 
-				auto pointers_instance = std::make_unique<pointers>();
+		DWORD WINAPI module_thread(PVOID)
+		{
+			auto logger_instance = std::make_unique<logger>();
+			std::unique_ptr<pointers> pointers_instance;
+			std::unique_ptr<renderer> renderer_instance;
+			std::unique_ptr<fiber_pool> fiber_pool_instance;
+			std::unique_ptr<hooking> hooking_instance;
+
+			try
+			{
+				print_banner();
+
+				pointers_instance = std::make_unique<pointers>();
 				LOG_INFO("Pointers initialized.");
+
+				if (!g_pointers || !g_pointers->m_game_state)
+					throw std::runtime_error("Game state pointer was not initialized.");
 
 				if (*g_pointers->m_game_state != eGameState::Playing)
 				{
 					LOG_INFO("Waiting for the game to load.");
-					do
-					{
+					while (g_running && *g_pointers->m_game_state != eGameState::Playing)
 						std::this_thread::sleep_for(100ms);
-					} while (*g_pointers->m_game_state != eGameState::Playing);
+
+					if (!g_running)
+						throw std::runtime_error("Shutdown requested while waiting for the game.");
 
 					LOG_INFO("The game has loaded.");
 				}
@@ -65,16 +75,16 @@ BOOL APIENTRY DllMain(HMODULE hmod, DWORD reason, PVOID)
 					LOG_INFO("The game is already loaded.");
 				}
 
-				auto renderer_instance = std::make_unique<renderer>();
+				renderer_instance = std::make_unique<renderer>();
 				LOG_INFO("Renderer initialized.");
 
-				auto fiber_pool_instance = std::make_unique<fiber_pool>(10);
+				fiber_pool_instance = std::make_unique<fiber_pool>(10);
 				LOG_INFO("Fiber pool initialized.");
 
 				g_lua_manager = std::make_unique<lua_manager>();
 				LOG_INFO("Sol2 Lua manager initialized.");
 
-				auto hooking_instance = std::make_unique<hooking>();
+				hooking_instance = std::make_unique<hooking>();
 				LOG_INFO("Hooking initialized.");
 
 				g_script_mgr.add_script(std::make_unique<script>(&features::script_func));
@@ -87,49 +97,73 @@ BOOL APIENTRY DllMain(HMODULE hmod, DWORD reason, PVOID)
 
 				while (g_running)
 				{
-					if (GetAsyncKeyState(VK_END) & 0x8000)
+					if (GetAsyncKeyState(VK_END) & 1)
 						g_running = false;
 
 					g_hooking->ensure_dynamic_hooks();
 					std::this_thread::sleep_for(10ms);
 				}
+			}
+			catch (const std::exception& exception)
+			{
+				g_running = false;
+				LOG_ERROR("Fatal startup/runtime error: {}", exception.what());
+				MessageBoxA(nullptr, exception.what(), "BigBaseV2", MB_OK | MB_ICONERROR);
+			}
+			catch (...)
+			{
+				g_running = false;
+				LOG_ERROR("Fatal startup/runtime error: unknown exception.");
+				MessageBoxA(nullptr, "An unknown fatal error occurred.", "BigBaseV2", MB_OK | MB_ICONERROR);
+			}
 
+			if (g_hooking)
+			{
 				g_hooking->disable();
 				LOG_INFO("Hooking disabled.");
-
-				std::this_thread::sleep_for(1000ms);
-
-				g_script_mgr.remove_all_scripts();
-				LOG_INFO("Scripts unregistered.");
-
-				g_lua_manager.reset();
-				LOG_INFO("Sol2 Lua manager uninitialized.");
-
-				hooking_instance.reset();
-				LOG_INFO("Hooking uninitialized.");
-
-				fiber_pool_instance.reset();
-				LOG_INFO("Fiber pool uninitialized.");
-
-				renderer_instance.reset();
-				LOG_INFO("Renderer uninitialized.");
-
-				pointers_instance.reset();
-				LOG_INFO("Pointers uninitialized.");
 			}
-			catch (std::exception const& ex)
-			{
-				LOG_ERROR("{}", ex.what());
-				MessageBoxA(nullptr, ex.what(), nullptr, MB_OK | MB_ICONEXCLAMATION);
-			}
+
+			std::this_thread::sleep_for(250ms);
+			g_script_mgr.remove_all_scripts();
+			LOG_INFO("Scripts unregistered.");
+
+			g_lua_manager.reset();
+			LOG_INFO("Sol2 Lua manager uninitialized.");
+
+			hooking_instance.reset();
+			fiber_pool_instance.reset();
+			renderer_instance.reset();
+			pointers_instance.reset();
 
 			LOG_INFO("Farewell!");
 			logger_instance.reset();
 
-			CloseHandle(g_main_thread);
-			FreeLibraryAndExitThread(g_hmodule, 0);
-		}, nullptr, 0, &g_main_thread_id);
+			const auto module = g_hmodule;
+			const auto thread_handle = g_main_thread;
+			g_main_thread = nullptr;
+			if (thread_handle)
+				CloseHandle(thread_handle);
+
+			FreeLibraryAndExitThread(module, 0);
+		}
+	}
+}
+
+BOOL APIENTRY DllMain(HMODULE module, DWORD reason, PVOID)
+{
+	if (reason != DLL_PROCESS_ATTACH)
+		return TRUE;
+
+	DisableThreadLibraryCalls(module);
+	big::g_hmodule = module;
+	big::g_running = true;
+	big::g_main_thread = CreateThread(nullptr, 0, &big::module_thread, nullptr, 0, &big::g_main_thread_id);
+
+	if (!big::g_main_thread)
+	{
+		big::g_running = false;
+		return FALSE;
 	}
 
-	return true;
+	return TRUE;
 }
