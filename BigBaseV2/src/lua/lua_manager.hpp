@@ -14,6 +14,7 @@ namespace big
 			std::filesystem::path path;
 			sol::environment environment;
 			sol::protected_function on_tick;
+			sol::protected_function on_unload;
 		};
 
 		lua_manager();
@@ -32,10 +33,14 @@ namespace big
 		[[nodiscard]] bool is_loaded(const std::filesystem::path& path) const;
 		[[nodiscard]] std::size_t loaded_count() const noexcept;
 
+		static void script_func();
+
 	private:
 		sol::environment create_environment(bool sandbox);
 		void register_api();
+		void call_unload(script_instance& script) noexcept;
 
+		mutable std::mutex m_mutex;
 		sol::state m_lua;
 		std::vector<std::unique_ptr<script_instance>> m_scripts;
 	};
