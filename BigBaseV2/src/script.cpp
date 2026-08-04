@@ -1,26 +1,32 @@
-#pragma once
 #include "common.hpp"
 #include "logger.hpp"
 #include "script.hpp"
 
 namespace big
 {
-	static void script_exception_handler(PEXCEPTION_POINTERS exp)
+	namespace
 	{
-		LOG_ERROR("Script threw an exception!");
-		g_stackwalker.ShowCallstack(GetCurrentThread(), exp->ContextRecord);
+		void log_script_exception(PEXCEPTION_POINTERS exception)
+		{
+			LOG_ERROR("Script raised a structured exception.");
+			if (exception && exception->ContextRecord)
+				g_stackwalker.ShowCallstack(GetCurrentThread(), exception->ContextRecord);
+		}
 	}
 
 	script::script(func_t func, std::optional<std::size_t> stack_size) :
-		m_func(func),
-		m_script_fiber(nullptr),
-		m_main_fiber(nullptr)
+		m_func(func)
 	{
-		m_script_fiber = CreateFiber(stack_size.has_value() ? stack_size.value() : 0, [](void* param)
-		{
-			auto this_script = static_cast<script*>(param);
-			this_script->fiber_func();
-		}, this);
+		if (!m_func)
+			throw std::invalid_argument("Script function cannot be null.");
+
+		m_script_fiber = CreateFiber(
+			stack_size.value_or(0),
+			&script::fiber_entry,
+			this);
+
+		if (!m_script_fiber)
+			throw std::runtime_error("CreateFiber failed for script.");
 	}
 
 	script::~script()
@@ -29,64 +35,74 @@ namespace big
 			DeleteFiber(m_script_fiber);
 	}
 
-	void script::tick()
+	VOID CALLBACK script::fiber_entry(void* parameter)
 	{
-		m_main_fiber = GetCurrentFiber();
-		if (!m_wake_time.has_value() || m_wake_time.value() <= std::chrono::high_resolution_clock::now())
-		{
-			SwitchToFiber(m_script_fiber);
-		}
+		auto* instance = static_cast<script*>(parameter);
+		if (instance)
+			instance->fiber_func();
 	}
 
-	void script::yield(std::optional<std::chrono::high_resolution_clock::duration> time)
+	void script::tick()
 	{
-		if (time.has_value())
-		{
-			m_wake_time = std::chrono::high_resolution_clock::now() + time.value();
-		}
-		else
-		{
-			m_wake_time = std::nullopt;
-		}
+		if (m_finished || !m_script_fiber)
+			return;
 
+		m_main_fiber = GetCurrentFiber();
+		if (!m_main_fiber)
+			throw std::runtime_error("Script tick requires a converted fiber thread.");
+
+		if (!m_wake_time || *m_wake_time <= clock::now())
+			SwitchToFiber(m_script_fiber);
+	}
+
+	void script::yield(std::optional<clock::duration> time)
+	{
+		if (!m_main_fiber)
+			throw std::runtime_error("Script attempted to yield without a main fiber.");
+
+		m_wake_time = time ? std::optional<clock::time_point>{clock::now() + *time} : std::nullopt;
 		SwitchToFiber(m_main_fiber);
 	}
 
-	script *script::get_current()
+	script* script::get_current() noexcept
 	{
+		if (!IsThreadAFiber())
+			return nullptr;
+
 		return static_cast<script*>(GetFiberData());
 	}
 
-	void script::fiber_func()
+	void script::fiber_func() noexcept
 	{
 		__try
 		{
-			[this]()
+			try
 			{
-				try
-				{
-					m_func();
-				}
-				catch (std::exception const &ex)
-				{
-					auto ex_class = typeid(ex).name() + 6;
-					LOG_INFO("Script threw an C++ expection! {}: {}", ex_class, ex.what());
-				}
-				catch (...)
-				{
-					LOG_INFO("Script threw a C++ exception!");
-				}
-			}();
+				m_func();
+			}
+			catch (const std::exception& exception)
+			{
+				m_faulted = true;
+				LOG_ERROR("Script threw a C++ exception: {}", exception.what());
+			}
+			catch (...)
+			{
+				m_faulted = true;
+				LOG_ERROR("Script threw an unknown C++ exception.");
+			}
 		}
-		__except (script_exception_handler(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER)
+		__except (log_script_exception(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER)
 		{
-			LOG_INFO("Script threw an exception!");
+			m_faulted = true;
 		}
 
-		LOG_INFO("Script finished!");
-		while (true)
-		{
-			yield();
-		}
+		m_finished = true;
+		LOG_INFO("Script finished{}.", m_faulted ? " with errors" : "");
+
+		if (m_main_fiber)
+			SwitchToFiber(m_main_fiber);
+
+		for (;;)
+			Sleep(INFINITE);
 	}
 }
