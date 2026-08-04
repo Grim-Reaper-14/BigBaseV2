@@ -22,7 +22,7 @@ namespace big::menu_pages
 		int selected_index{-1};
 		bool sandbox_scripts{true};
 		bool auto_reload{false};
-		std::string status{"Lua runtime is not installed yet."};
+		std::string status{"Sol2 runtime ready."};
 
 	private:
 		std::filesystem::path m_scripts_directory;
