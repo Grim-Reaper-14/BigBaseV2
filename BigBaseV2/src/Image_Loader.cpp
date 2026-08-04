@@ -287,7 +287,7 @@ namespace big
 
 	ImTextureID Image_Loader::GetImGuiTextureID() const noexcept
 	{
-		return reinterpret_cast<ImTextureID>(m_shader_resource_view.Get());
+		return static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(m_shader_resource_view.Get()));
 	}
 
 	std::uint32_t Image_Loader::GetWidth() const noexcept
