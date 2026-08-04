@@ -1,5 +1,15 @@
 # Native and Crossmap Maintenance
 
+This BigBaseV2 branch targets **GTAV Enhanced only**.
+
+```text
+Edition: GTAV Enhanced
+Executable: GTA5_Enhanced.exe
+Crossmap build prefix: enhanced-
+```
+
+Do not import a Legacy `GTA5.exe` crossmap into this branch.
+
 BigBaseV2 originally shipped with native wrappers generated in February 2019 and a fixed `crossmap.hpp`. Those files must be treated as versioned build data.
 
 ## Important distinction
@@ -9,7 +19,7 @@ BigBaseV2 originally shipped with native wrappers generated in February 2019 and
 
 Updating only `natives.hpp` does not update the runtime mappings. Updating only `crossmap.hpp` does not add new wrappers or corrected signatures.
 
-Legacy and Enhanced crossmaps must be generated and reviewed separately.
+Enhanced crossmaps must be generated for the exact `GTA5_Enhanced.exe` build being tested.
 
 ## 1. Generate current NativeDB wrappers
 
@@ -33,7 +43,7 @@ py tools/natives/generate_natives.py --input tools/natives/data/natives.json
 
 Review unknown parameter types and compile the generated header before replacing `BigBaseV2/src/natives.hpp`.
 
-## 2. Import a build-specific crossmap
+## 2. Import an Enhanced build-specific crossmap
 
 The importer accepts JSON or CSV pairs:
 
@@ -53,21 +63,26 @@ Generate the header:
 
 ```powershell
 py tools/natives/import_crossmap.py tools/natives/data/crossmap.json `
+  --edition enhanced `
+  --executable GTA5_Enhanced.exe `
   --game-build enhanced-BUILD_NUMBER `
   --source "SOURCE NAME AND REVISION"
 ```
 
 The importer refuses to write a crossmap when:
 
+- the edition is not `enhanced`;
+- the executable is not `GTA5_Enhanced.exe`;
+- the build label does not begin with `enhanced-`;
 - an original hash maps to conflicting current hashes;
 - a hash is zero, malformed, or wider than 64 bits;
 - the mapping does not cover the hashes referenced by `natives.hpp`.
 
-Use `--allow-missing` only while investigating a new build, never for a release build.
+Use `--allow-missing` only while investigating a new Enhanced build, never for a release build.
 
 ## 3. Runtime validation
 
-`native_invoker::cache_handlers()` now reports:
+`native_invoker::cache_handlers()` reports:
 
 - total mappings;
 - cached handlers;
@@ -75,13 +90,13 @@ Use `--allow-missing` only while investigating a new build, never for a release 
 - duplicate original hashes;
 - direct-original-hash fallbacks.
 
-A non-zero missing count means the crossmap, native registration pointer, or executable edition is wrong. Do not continue testing gameplay features until the cache is healthy.
+A non-zero missing count means the Enhanced crossmap, native registration pointer, or executable build is wrong. Do not continue testing gameplay features until the cache is healthy.
 
-## 4. Required update checklist
+## 4. Required Enhanced update checklist
 
-1. Confirm the executable edition: Legacy or Enhanced.
-2. Record the executable file version/build number.
-3. Obtain a crossmap generated for that exact build.
+1. Confirm the running executable is `GTA5_Enhanced.exe`.
+2. Record its Windows file version and game build number.
+3. Obtain a crossmap generated for that exact Enhanced build.
 4. Generate and review typed wrappers from NativeDB.
 5. Import the crossmap without `--allow-missing`.
 6. Regenerate the Visual Studio solution.
@@ -92,4 +107,4 @@ A non-zero missing count means the crossmap, native registration pointer, or exe
 
 ## Source policy
 
-Keep source name, revision/commit, edition, and game build with every imported mapping. Do not accept anonymous crossmap dumps as release data.
+Keep source name, revision/commit, edition, executable, and game build with every imported mapping. Do not accept anonymous crossmap dumps as release data.
