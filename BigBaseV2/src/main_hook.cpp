@@ -9,6 +9,8 @@ namespace big
 {
 	namespace
 	{
+		std::atomic<functions::run_script_threads_t> g_original_run_script_threads{};
+
 		[[nodiscard]] void* require_run_script_threads_target()
 		{
 			if (g_main_hook)
@@ -27,6 +29,11 @@ namespace big
 			require_run_script_threads_target(),
 			reinterpret_cast<void*>(&run_script_threads))
 	{
+		const auto original = m_run_script_threads_hook.get_original<functions::run_script_threads_t>();
+		if (!original)
+			throw std::runtime_error("The main hook did not receive a RunScriptThreads trampoline.");
+
+		g_original_run_script_threads.store(original, std::memory_order_release);
 		g_main_hook = this;
 	}
 
@@ -66,15 +73,13 @@ namespace big
 
 	bool main_hook::run_script_threads(std::uint32_t ops_to_execute)
 	{
-		auto* instance = g_main_hook;
-		if (!instance)
-			return false;
-
-		const auto original = instance->m_run_script_threads_hook.get_original<functions::run_script_threads_t>();
+		const auto original = g_original_run_script_threads.load(std::memory_order_acquire);
 		if (!original)
 			return false;
 
-		instance->tick(ops_to_execute);
+		if (auto* instance = g_main_hook)
+			instance->tick(ops_to_execute);
+
 		return original(ops_to_execute);
 	}
 
