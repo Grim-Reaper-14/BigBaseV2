@@ -1,14 +1,14 @@
 #include "common.hpp"
 #include "features.hpp"
 #include "logger.hpp"
+#include "menu/pages/vehicle.hpp"
 #include "script.hpp"
 
 namespace big
 {
 	void features::run_tick()
 	{
-		// Feature modules register their per-frame work here. Keep this function
-		// lightweight because it runs from the main script scheduler.
+		menu_pages::tick_vehicle();
 	}
 
 	void features::script_func()
