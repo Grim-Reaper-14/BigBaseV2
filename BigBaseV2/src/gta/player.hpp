@@ -1,8 +1,11 @@
 #pragma once
-#include <cstdint>
-#include "fwddec.hpp"
+
 #include "extensible.hpp"
+#include "fwddec.hpp"
 #include "vector.hpp"
+
+#include <cstddef>
+#include <cstdint>
 
 #pragma pack(push, 1)
 namespace rage
@@ -22,6 +25,9 @@ namespace rage
 	};
 #	pragma warning(pop)
 
+	// Compatibility views retained for the existing feature layer. The public
+	// Enhanced reference does not currently provide stable field offsets for
+	// the full player objects, so code should prefer virtual accessors/natives.
 	class netPlayerData
 	{
 	public:
@@ -47,9 +53,9 @@ namespace rage
 	{
 	public:
 		virtual ~nonPhysicalPlayerDataBase() = default;
-		virtual void unk_0x08() = 0;
-		virtual void unk_0x10() = 0;
-		virtual void unk_0x18() = 0;
+		virtual void unknown_0x08() = 0;
+		virtual void unknown_0x10() = 0;
+		virtual void unknown_0x18() = 0;
 		virtual void log(netLoggingInterface* logger) = 0;
 	};
 
@@ -60,10 +66,10 @@ namespace rage
 		virtual void reset() = 0;
 		virtual bool is_valid() const = 0;
 		virtual const char* get_name() const = 0;
-		virtual void _0x20() = 0;
+		virtual void unknown_0x20() = 0;
 		virtual bool is_host() = 0;
 		virtual netPlayerData* get_net_data() = 0;
-		virtual void _0x38() = 0;
+		virtual void unknown_0x38() = 0;
 	};
 
 	class netPlayerMgrBase
@@ -81,9 +87,9 @@ namespace gta
 class CNonPhysicalPlayerData : public rage::nonPhysicalPlayerDataBase
 {
 public:
-	std::int32_t m_bubble_id;
-	std::int32_t m_player_id;
-	rage::vector3 m_position;
+	std::int32_t m_bubble_id{};
+	std::int32_t m_player_id{};
+	rage::vector3 m_position{};
 };
 
 class CNetGamePlayer : public rage::netPlayer
@@ -93,17 +99,17 @@ class CNetGamePlayer : public rage::netPlayer
 class CWantedData
 {
 public:
-	char m_padding[0x98];
-	std::int32_t m_wanted_level;
+	char m_padding[0x98]{};
+	std::int32_t m_wanted_level{};
 };
 
 class CPlayerInfo : public rage::fwExtensibleBase
 {
 public:
-	char m_padding1[0x1D8];
-	std::uint32_t m_frame_flags;
-	char m_padding2[0x584];
-	CWantedData m_wanted_data;
+	char m_padding1[0x1D8]{};
+	std::uint32_t m_frame_flags{};
+	char m_padding2[0x584]{};
+	CWantedData m_wanted_data{};
 };
 
 static_assert(sizeof(rage::netAddress) == 0x04);
