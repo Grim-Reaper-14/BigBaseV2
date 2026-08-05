@@ -25,7 +25,7 @@ namespace big
 		const auto started = std::chrono::steady_clock::now();
 		const memory::module game_module(nullptr);
 		if (!game_module.valid())
-			throw std::runtime_error("Failed to inspect the GTA V executable module.");
+			throw std::runtime_error("Failed to inspect the GTA V Enhanced executable module.");
 
 		m_report.module_base = game_module.begin().value();
 		m_report.module_size = game_module.size();
@@ -93,7 +93,7 @@ namespace big
 		m_report.required_found = required_result.found;
 
 		memory::pattern_batch optional_batch;
-		optional_batch.add("Legacy native handlers", "48 8D 0D ? ? ? ? 48 8B 14 FA E8 ? ? ? ? 48 85 C0 75 0A", [this](memory::handle pointer)
+		optional_batch.add("Registration-table native lookup", "48 8D 0D ? ? ? ? 48 8B 14 FA E8 ? ? ? ? 48 85 C0 75 0A", [this](memory::handle pointer)
 		{
 			m_native_registration_table = pointer.add(3).rip().as<rage::scrNativeRegistrationTable*>();
 			m_get_native_handler = pointer.add(12).rip().as<functions::get_native_handler_t>();
@@ -119,13 +119,13 @@ namespace big
 		}
 
 		if (!m_report.missing_optional.empty())
-			LOG_WARNING("Optional pointer signatures unavailable: {}.", join_names(m_report.missing_optional));
+			LOG_WARNING("Optional Enhanced pointer signatures unavailable: {}.", join_names(m_report.missing_optional));
 
 		validate_required();
 
 		g_pointers = this;
 		LOG_INFO(
-			"Pointer resolution completed in {} ms. Required: {}/{}, optional: {}/{}.",
+			"Enhanced pointer resolution completed in {} ms. Required: {}/{}, optional: {}/{}.",
 			m_report.elapsed.count(),
 			m_report.required_found,
 			m_report.required_total,
@@ -166,7 +166,7 @@ namespace big
 		return m_network_player_mgr != nullptr;
 	}
 
-	bool pointers::legacy_native_lookup_ready() const noexcept
+	bool pointers::registration_table_lookup_ready() const noexcept
 	{
 		return m_native_registration_table && m_get_native_handler;
 	}
@@ -219,6 +219,6 @@ namespace big
 		if (missing.empty())
 			return;
 
-		throw std::runtime_error("Failed to resolve required runtime pointers: " + join_names(missing));
+		throw std::runtime_error("Failed to resolve required GTA V Enhanced runtime pointers: " + join_names(missing));
 	}
 }
