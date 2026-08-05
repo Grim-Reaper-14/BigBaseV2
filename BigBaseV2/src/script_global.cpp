@@ -4,23 +4,30 @@
 
 namespace big
 {
-	script_global::script_global(std::size_t index) :
-		m_index(index)
+	namespace
 	{
+		constexpr std::size_t global_page_shift = 0x12;
+		constexpr std::size_t global_page_mask = 0x3F;
+		constexpr std::size_t global_entry_mask = 0x3FFFF;
+		constexpr std::size_t global_page_count = 0x40;
 	}
 
-	script_global script_global::at(std::ptrdiff_t index)
+	bool script_global::can_access() const noexcept
 	{
-		return script_global(m_index + index);
+		if (!g_pointers || !g_pointers->m_script_globals)
+			return false;
+
+		const auto page = (m_index >> global_page_shift) & global_page_mask;
+		return page < global_page_count && g_pointers->m_script_globals[page] != nullptr;
 	}
 
-	script_global script_global::at(std::ptrdiff_t index, std::size_t size)
+	void* script_global::get() const noexcept
 	{
-		return script_global(m_index + 1 + (index * size));
-	}
+		if (!can_access())
+			return nullptr;
 
-	void *script_global::get()
-	{
-		return g_pointers->m_script_globals[m_index >> 0x12 & 0x3F] + (m_index & 0x3FFFF);
+		const auto page = (m_index >> global_page_shift) & global_page_mask;
+		const auto offset = m_index & global_entry_mask;
+		return g_pointers->m_script_globals[page] + offset;
 	}
 }
