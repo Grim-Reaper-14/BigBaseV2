@@ -192,20 +192,6 @@ def render_header(models: list[VehicleModel]) -> str:
     return "\n".join(lines)
 
 
-def generated_file_is_current(path: Path, expected_count: int) -> bool:
-    if not path.is_file():
-        return False
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError:
-        return False
-    return (
-        f"// source-blob: {SOURCE_BLOB_SHA}" in content
-        and f"// model-count: {expected_count}" in content
-        and "static_assert(vehicle_catalog_hashes_valid" in content
-    )
-
-
 def write_if_changed(path: Path, content: str) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_file() and path.read_text(encoding="utf-8") == content:
@@ -221,18 +207,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--source-file", type=Path)
     parser.add_argument("--expected-count", type=int, default=EXPECTED_MODEL_COUNT)
-    parser.add_argument("--force", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    if not args.force and args.source_file is None and generated_file_is_current(
-        args.output, args.expected_count
-    ):
-        print(f"Vehicle catalog is current: {args.output}")
-        return 0
-
     if args.source_file is not None:
         try:
             source_data = args.source_file.read_bytes()
