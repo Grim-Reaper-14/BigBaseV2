@@ -25,31 +25,32 @@ namespace big
 		const auto started = std::chrono::steady_clock::now();
 		const memory::module game_module(nullptr);
 		if (!game_module.valid())
-			throw std::runtime_error("Failed to inspect the GTA V Enhanced executable module.");
+			throw std::runtime_error("Failed to inspect GTA5_Enhanced.exe.");
 
 		m_report.module_base = game_module.begin().value();
 		m_report.module_size = game_module.size();
 
 		memory::pattern_batch required_batch;
 
-		required_batch.add("Game state", "83 3D ? ? ? ? ? 75 17 8B 42 20 25", [this](memory::handle pointer)
+		required_batch.add("Game state", "83 3D ? ? ? ? ? 0F 85 ? ? ? ? BA ? 00", [this](memory::handle pointer)
 		{
-			m_game_state = pointer.add(2).rip().as<eGameState*>();
+			m_game_state = pointer.add(2).rip().add(1).as<eGameState*>();
 		});
 
-		required_batch.add("Is session started", "40 38 35 ? ? ? ? 75 0E 4C 8B C3 49 8B D7 49 8B CE", [this](memory::handle pointer)
+		required_batch.add("Swapchain and command queue", "72 C7 EB 02 31 C0 8B 0D", [this](memory::handle pointer)
 		{
-			m_is_session_started = pointer.add(3).rip().as<bool*>();
+			m_command_queue = pointer.add(0x1A).add(3).rip().as<ID3D12CommandQueue**>();
+			m_swapchain = pointer.add(0x21).add(3).rip().as<IDXGISwapChain1**>();
 		});
 
-		required_batch.add("Ped factory", "48 8B 05 ? ? ? ? 48 8B 48 08 48 85 C9 74 52 8B 81", [this](memory::handle pointer)
+		required_batch.add("HWND", "E8 ? ? ? ? 84 C0 74 25 48 8B 0D", [this](memory::handle pointer)
 		{
-			m_ped_factory = pointer.add(3).rip().as<CPedFactory**>();
+			m_hwnd_ptr = pointer.add(9).add(3).rip().as<HWND*>();
 		});
 
-		required_batch.add("Network player manager", "48 8B 0D ? ? ? ? 8A D3 48 8B 01 FF 50 ? 4C 8B 07 48 8B CF", [this](memory::handle pointer)
+		required_batch.add("Script threads", "48 8B 05 ? ? ? ? 48 89 34 F8 48 FF C7 48 39 FB 75 97", [this](memory::handle pointer)
 		{
-			m_network_player_mgr = pointer.add(3).rip().as<CNetworkPlayerMgr**>();
+			m_script_threads = pointer.add(3).rip().as<decltype(m_script_threads)>();
 		});
 
 		required_batch.add("Enhanced InitNativeTables", "EB 2A 0F 1F 40 00 48 8B 54 17 10", [this](memory::handle pointer)
@@ -57,20 +58,19 @@ namespace big
 			m_init_native_tables = pointer.sub(0x2A).as<functions::init_native_tables_t>();
 		});
 
-		required_batch.add("Fix vectors", "83 79 18 00 48 8B D1 74 4A FF 4A 18 48 63 4A 18 48 8D 41 04 48 8B 4C CA", [this](memory::handle pointer)
+		required_batch.add("Run script threads", "BE 40 5D C6 00", [this](memory::handle pointer)
 		{
-			m_fix_vectors = pointer.as<functions::fix_vectors_t>();
+			m_run_script_threads = pointer.sub(0xA).as<functions::run_script_threads_t>();
 		});
 
-		required_batch.add("Script threads", "45 33 F6 8B E9 85 C9 B8", [this](memory::handle pointer)
+		required_batch.add("Ped factory", "C7 40 30 03 00 00 00 48 8B 0D", [this](memory::handle pointer)
 		{
-			m_script_threads = pointer.sub(4).rip().sub(8).as<decltype(m_script_threads)>();
-			m_run_script_threads = pointer.sub(0x1F).as<functions::run_script_threads_t>();
+			m_ped_factory = pointer.add(7).add(3).rip().as<CPedFactory**>();
 		});
 
-		required_batch.add("Script programs", "44 8B 0D ? ? ? ? 4C 8B 1D ? ? ? ? 48 8B 1D ? ? ? ? 41 83 F8 FF 74 3F 49 63 C0 42 0F B6 0C 18 81 E1", [this](memory::handle pointer)
+		required_batch.add("Is session started", "0F B6 05 ? ? ? ? 0A 05 ? ? ? ? 75 2A", [this](memory::handle pointer)
 		{
-			m_script_program_table = pointer.add(17).rip().as<decltype(m_script_program_table)>();
+			m_is_session_started = pointer.add(3).rip().as<bool*>();
 		});
 
 		required_batch.add("Script globals", "48 8B 8E B8 00 00 00 48 8D 15 ? ? ? ? 49 89 D8", [this](memory::handle pointer)
@@ -78,14 +78,14 @@ namespace big
 			m_script_globals = pointer.add(7).add(3).rip().as<std::int64_t**>();
 		});
 
-		required_batch.add("CGameScriptHandlerMgr", "48 8B 0D ? ? ? ? 4C 8B CE E8 ? ? ? ? 48 85 C0 74 05 40 32 FF", [this](memory::handle pointer)
+		required_batch.add("Script programs", "48 C7 84 C8 D8 00 00 00 00 00 00 00", [this](memory::handle pointer)
 		{
-			m_script_handler_mgr = pointer.add(3).rip().as<CGameScriptHandlerMgr**>();
+			m_script_programs = pointer.add(0x13).add(3).rip().add(0xD8).as<rage::scrProgram**>();
 		});
 
-		required_batch.add("Swapchain", "48 8B 0D ? ? ? ? 48 8B 01 44 8D 43 01 33 D2 FF 50 40 8B C8", [this](memory::handle pointer)
+		required_batch.add("Network player manager", "75 0E 48 8B 05 ? ? ? ? 48 8B 88 F0 00 00 00", [this](memory::handle pointer)
 		{
-			m_swapchain = pointer.add(3).rip().as<IDXGISwapChain**>();
+			m_network_player_mgr = pointer.add(2).add(3).rip().as<CNetworkPlayerMgr**>();
 		});
 
 		const auto required_result = required_batch.run(game_module, false);
@@ -93,6 +93,117 @@ namespace big
 		m_report.required_found = required_result.found;
 
 		memory::pattern_batch optional_batch;
+
+		optional_batch.add("WndProc", "3D 85 00 00 00 0F 87 2D 02 00 00", [this](memory::handle pointer)
+		{
+			m_wnd_proc = pointer.sub(0x4F).as<PVOID>();
+		});
+
+		optional_batch.add("Screen resolution", "75 39 0F 57 C0 F3 0F 2A 05", [this](memory::handle pointer)
+		{
+			m_screen_res_x = pointer.add(0x5).add(4).rip().as<std::uint32_t*>();
+			m_screen_res_y = pointer.add(0x1E).add(4).rip().as<std::uint32_t*>();
+		});
+
+		optional_batch.add("Game and online version", "4C 8D 0D ? ? ? ? 48 8D 5C 24 ? 48 89 D9 48 89 FA", [this](memory::handle pointer)
+		{
+			m_game_version = pointer.add(3).rip().as<const char*>();
+			m_online_version = pointer.add(0x47).add(3).rip().as<const char*>();
+		});
+
+		optional_batch.add("Handles and pointers", "0F 1F 84 00 00 00 00 00 89 F8 0F 28 FE 41", [this](memory::handle pointer)
+		{
+			m_handle_to_ptr = pointer.add(0x21).add(1).rip().as<functions::handle_to_ptr_t>();
+			m_ptr_to_handle = pointer.sub(0xB).add(1).rip().as<functions::ptr_to_handle_t>();
+		});
+
+		optional_batch.add("Region code", "4C 8D 05 ? ? ? ? 48 89 F1 48 89 FA E8 ? ? ? ? 84 C0 74 3D", [this](memory::handle pointer)
+		{
+			m_region_code = pointer.add(3).rip().as<int*>();
+		});
+
+		optional_batch.add("Network object manager", "41 83 7E FA 02 40 0F 9C C5 C1 E5 02", [this](memory::handle pointer)
+		{
+			m_network_object_mgr = pointer.add(0xC).add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Queue dependency and scan memory", "0F 29 46 50 48 8D 05", [this](memory::handle pointer)
+		{
+			m_queue_dependency = pointer.add(0x71).add(1).rip().as<PVOID>();
+			m_sig_scan_memory = pointer.add(4).add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Script VM", "49 63 41 1C", [this](memory::handle pointer)
+		{
+			m_script_vm = pointer.sub(0x24).as<PVOID>();
+		});
+
+		optional_batch.add("Stats manager", "89 6C 24 28 48 8D 0D ? ? ? ? 48 8D", [this](memory::handle pointer)
+		{
+			m_stats_mgr = pointer.add(4).add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Ped pool", "80 79 4B 00 0F 84 F5 00 00 00 48 89 F1", [this](memory::handle pointer)
+		{
+			m_ped_pool = pointer.add(0x18).add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Vehicle pool", "48 83 78 18 0D", [this](memory::handle pointer)
+		{
+			m_vehicle_pool = pointer.sub(0xA).add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Object pool", "48 8B 04 0A C3 0F B6 05", [this](memory::handle pointer)
+		{
+			m_object_pool = pointer.add(5).add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Network session", "49 C7 86 F8 00 00 00 00 00 00 00 48 8B 05", [this](memory::handle pointer)
+		{
+			m_network_session = pointer.add(0x17).add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Network time", "89 05 ? ? ? ? 80 3D ? ? ? ? ? 0F 84 ? ? ? ? E9", [this](memory::handle pointer)
+		{
+			m_network_time = pointer.add(2).rip().as<std::uint32_t*>();
+		});
+
+		optional_batch.add("Game timer", "3B 2D ? ? ? ? 76 ? 89 D9", [this](memory::handle pointer)
+		{
+			m_game_timer = pointer.add(2).rip().as<std::uint32_t*>();
+		});
+
+		optional_batch.add("Stats MP character mapping", "48 8D 0D ? ? ? ? 89 F2 0F 28 74 24 ? 48 83 C4 38", [this](memory::handle pointer)
+		{
+			m_stats_mp_character_mapping_data = pointer.add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("GTA Plus membership flag", "48 8D 15 ? ? ? ? 41 B8 18 02 00 00 E8", [this](memory::handle pointer)
+		{
+			m_has_gta_plus = pointer.add(3).rip().as<int*>();
+		});
+
+		optional_batch.add("Game data hash", "48 8D 3D ? ? ? ? 69 C9", [this](memory::handle pointer)
+		{
+			m_game_data_hash = pointer.add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("DLC manager and DLC hash", "31 D2 E8 ? ? ? ? 3B 84", [this](memory::handle pointer)
+		{
+			m_dlc_manager = pointer.sub(4).rip().as<PVOID>();
+			m_get_dlc_hash = pointer.add(3).rip().as<PVOID>();
+		});
+
+		optional_batch.add("Game skeleton update", "56 48 83 EC 20 48 8B 81 40 01 00 00 48 85 C0", [this](memory::handle pointer)
+		{
+			m_game_skeleton_update = pointer.as<PVOID>();
+		});
+
+		optional_batch.add("Fix vectors compatibility", "83 79 18 00 48 8B D1 74 4A FF 4A 18 48 63 4A 18 48 8D 41 04 48 8B 4C CA", [this](memory::handle pointer)
+		{
+			m_fix_vectors = pointer.as<functions::fix_vectors_t>();
+		});
+
 		optional_batch.add("Registration-table native lookup", "48 8D 0D ? ? ? ? 48 8B 14 FA E8 ? ? ? ? 48 85 C0 75 0A", [this](memory::handle pointer)
 		{
 			m_native_registration_table = pointer.add(3).rip().as<rage::scrNativeRegistrationTable*>();
@@ -104,22 +215,23 @@ namespace big
 		m_report.optional_found = optional_result.found;
 		m_report.missing_optional = optional_result.missing;
 
-		m_hwnd = FindWindowW(L"grcWindow", nullptr);
+		if (m_hwnd_ptr && *m_hwnd_ptr)
+			m_hwnd = *m_hwnd_ptr;
+
 		m_report.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::steady_clock::now() - started);
 
-		const auto missing = missing_required();
 		if (!required_result.missing.empty())
 		{
 			for (const auto& name : required_result.missing)
-			{
-				if (std::find(missing.begin(), missing.end(), name) == missing.end())
-					LOG_ERROR("Required pointer pattern was not found: {}.", name);
-			}
+				LOG_ERROR("Required Enhanced pointer pattern was not found: {}.", name);
 		}
 
 		if (!m_report.missing_optional.empty())
 			LOG_WARNING("Optional Enhanced pointer signatures unavailable: {}.", join_names(m_report.missing_optional));
+
+		if (!m_fix_vectors)
+			LOG_WARNING("FixVectors compatibility pointer was not found; native vector-result fixups will be skipped.");
 
 		validate_required();
 
@@ -141,24 +253,22 @@ namespace big
 
 	bool pointers::core_ready() const noexcept
 	{
-		return m_hwnd && m_game_state && m_is_session_started && m_ped_factory &&
-			m_init_native_tables && m_fix_vectors;
+		return m_hwnd && m_hwnd_ptr && m_game_state && m_is_session_started && m_ped_factory;
 	}
 
 	bool pointers::renderer_ready() const noexcept
 	{
-		return m_hwnd && m_swapchain && *m_swapchain;
+		return m_hwnd && m_swapchain && *m_swapchain && m_command_queue && *m_command_queue;
 	}
 
 	bool pointers::scripts_ready() const noexcept
 	{
-		return m_script_threads && m_script_program_table && m_run_script_threads &&
-			m_script_globals && m_script_handler_mgr;
+		return m_script_threads && m_script_programs && m_run_script_threads && m_script_globals;
 	}
 
 	bool pointers::native_ready() const noexcept
 	{
-		return m_init_native_tables && m_fix_vectors;
+		return m_init_native_tables != nullptr;
 	}
 
 	bool pointers::network_ready() const noexcept
@@ -173,7 +283,7 @@ namespace big
 
 	bool pointers::fully_ready() const noexcept
 	{
-		return core_ready() && renderer_ready() && scripts_ready() && network_ready();
+		return core_ready() && renderer_ready() && scripts_ready() && native_ready() && network_ready();
 	}
 
 	const pointers::resolution_report& pointers::report() const noexcept
@@ -184,7 +294,7 @@ namespace big
 	std::vector<std::string> pointers::missing_required() const
 	{
 		std::vector<std::string> missing;
-		if (!m_hwnd)
+		if (!m_hwnd_ptr || !m_hwnd)
 			missing.emplace_back("game window");
 		if (!m_game_state)
 			missing.emplace_back("game state");
@@ -196,20 +306,18 @@ namespace big
 			missing.emplace_back("network player manager");
 		if (!m_init_native_tables)
 			missing.emplace_back("Enhanced InitNativeTables");
-		if (!m_fix_vectors)
-			missing.emplace_back("FixVectors");
 		if (!m_swapchain || !*m_swapchain)
 			missing.emplace_back("DXGI swapchain");
+		if (!m_command_queue || !*m_command_queue)
+			missing.emplace_back("D3D12 command queue");
 		if (!m_script_threads)
 			missing.emplace_back("script threads");
-		if (!m_script_program_table)
-			missing.emplace_back("script program table");
+		if (!m_script_programs)
+			missing.emplace_back("script programs");
 		if (!m_run_script_threads)
 			missing.emplace_back("script thread runner");
 		if (!m_script_globals)
 			missing.emplace_back("script globals");
-		if (!m_script_handler_mgr)
-			missing.emplace_back("script handler manager");
 		return missing;
 	}
 
