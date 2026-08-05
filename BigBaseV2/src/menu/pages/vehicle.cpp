@@ -12,6 +12,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -25,23 +26,6 @@ namespace big::menu_pages
 			repair,
 			clean
 		};
-
-		std::uint32_t joaat(std::string_view value) noexcept
-		{
-			std::uint32_t hash{};
-			for (char character : value)
-			{
-				const auto lowered = static_cast<std::uint8_t>(
-					character >= 'A' && character <= 'Z' ? character + ('a' - 'A') : character);
-				hash += lowered;
-				hash += hash << 10;
-				hash ^= hash >> 6;
-			}
-			hash += hash << 3;
-			hash ^= hash >> 11;
-			hash += hash << 15;
-			return hash;
-		}
 
 		bool contains_case_insensitive(std::string_view value, std::string_view query)
 		{
@@ -58,6 +42,19 @@ namespace big::menu_pages
 					return std::tolower(static_cast<unsigned char>(left)) ==
 						std::tolower(static_cast<unsigned char>(right));
 				}) != value.end();
+		}
+
+		bool catalog_entry_matches(const vehicle_catalog_entry& entry, std::string_view query)
+		{
+			if (query.empty() || contains_case_insensitive(entry.model_name, query))
+				return true;
+
+			char hexadecimal_hash[11]{};
+			char decimal_hash[16]{};
+			std::snprintf(hexadecimal_hash, sizeof(hexadecimal_hash), "0x%08X", entry.model_hash);
+			std::snprintf(decimal_hash, sizeof(decimal_hash), "%u", entry.model_hash);
+			return contains_case_insensitive(hexadecimal_hash, query) ||
+				contains_case_insensitive(decimal_hash, query);
 		}
 
 		const char* spawn_status_text(vehicle_spawn_status status) noexcept
@@ -87,16 +84,14 @@ namespace big::menu_pages
 			return "Unknown";
 		}
 
-		void set_model_name(const char* model)
+		void select_catalog_entry(const vehicle_catalog_entry& entry)
 		{
 			std::fill(g_vehicle_settings.spawn_model.begin(), g_vehicle_settings.spawn_model.end(), '\0');
-			if (!model)
-				return;
-
 			std::copy_n(
-				model,
-				std::min<std::size_t>(std::strlen(model), g_vehicle_settings.spawn_model.size() - 1),
+				entry.model_name,
+				std::min<std::size_t>(std::strlen(entry.model_name), g_vehicle_settings.spawn_model.size() - 1),
 				g_vehicle_settings.spawn_model.begin());
+			g_vehicle_settings.selected_model_hash = entry.model_hash;
 		}
 
 		Vehicle get_current_vehicle() noexcept
@@ -153,50 +148,45 @@ namespace big::menu_pages
 
 		void draw_vehicle_catalog()
 		{
-			ImGui::SetNextItemWidth(210.0f);
-			if (ImGui::BeginCombo("Category", g_vehicle_categories[g_vehicle_settings.category_index]))
-			{
-				for (int index = 0; index < static_cast<int>(std::size(g_vehicle_categories)); ++index)
-				{
-					const bool selected = g_vehicle_settings.category_index == index;
-					if (ImGui::Selectable(g_vehicle_categories[index], selected))
-						g_vehicle_settings.category_index = index;
-					if (selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-
+			ImGui::TextDisabled(
+				"%zu JOAAT-verified vehicle models from the pinned Enhanced data source",
+				g_vehicle_catalog.size());
 			ImGui::SetNextItemWidth(-1.0f);
 			ImGui::InputTextWithHint(
 				"##VehicleCatalogSearch",
-				"Search display name or model...",
+				"Search model name, decimal hash, or 0x hash...",
 				g_vehicle_settings.catalog_search.data(),
 				g_vehicle_settings.catalog_search.size());
 
 			const std::string_view query{g_vehicle_settings.catalog_search.data()};
-			const char* selected_category = g_vehicle_categories[g_vehicle_settings.category_index];
-			ImGui::BeginChild("VehicleCatalogList", ImVec2(0.0f, 145.0f), true);
+			ImGui::BeginChild("VehicleCatalogList", ImVec2(0.0f, 215.0f), true);
 			for (const auto& entry : g_vehicle_catalog)
 			{
-				if (g_vehicle_settings.category_index != 0 && std::strcmp(entry.category, selected_category) != 0)
+				if (!catalog_entry_matches(entry, query))
 					continue;
-				if (!contains_case_insensitive(entry.display_name, query) &&
-					!contains_case_insensitive(entry.model_name, query))
-				{
-					continue;
-				}
 
-				const bool selected = std::strcmp(g_vehicle_settings.spawn_model.data(), entry.model_name) == 0;
-				const std::string label = std::string(entry.display_name) + "  [" + entry.model_name + "]##" + entry.model_name;
-				if (ImGui::Selectable(label.c_str(), selected))
-					set_model_name(entry.model_name);
+				const bool selected =
+					g_vehicle_settings.selected_model_hash == entry.model_hash &&
+					std::strcmp(g_vehicle_settings.spawn_model.data(), entry.model_name) == 0;
+				char label[128]{};
+				std::snprintf(
+					label,
+					sizeof(label),
+					"%s  [0x%08X]##%08X",
+					entry.model_name,
+					entry.model_hash,
+					entry.model_hash);
+				if (ImGui::Selectable(label, selected))
+					select_catalog_entry(entry);
 			}
 			ImGui::EndChild();
 		}
 	}
 
-	void queue_vehicle_spawn(std::string model_name, bool put_player_inside)
+	void queue_vehicle_spawn(
+		std::string model_name,
+		std::uint32_t selected_model_hash,
+		bool put_player_inside)
 	{
 		model_name.erase(std::remove_if(model_name.begin(), model_name.end(), [](unsigned char character)
 		{
@@ -209,6 +199,12 @@ namespace big::menu_pages
 			return;
 		}
 
+		const std::uint32_t computed_hash = vehicle_joaat(model_name.c_str());
+		const std::uint32_t model_hash =
+			selected_model_hash != 0 && selected_model_hash == computed_hash ?
+				selected_model_hash :
+				computed_hash;
+
 		if (!g_fiber_pool)
 		{
 			g_vehicle_settings.spawn_status.store(vehicle_spawn_status::queue_failed, std::memory_order_relaxed);
@@ -216,34 +212,34 @@ namespace big::menu_pages
 		}
 
 		g_vehicle_settings.spawn_status.store(vehicle_spawn_status::loading, std::memory_order_relaxed);
-		const bool queued = g_fiber_pool->queue_job([model_name = std::move(model_name), put_player_inside]
+		const bool queued = g_fiber_pool->queue_job([model_hash, put_player_inside]
 		{
-			const auto model_hash = static_cast<Hash>(joaat(model_name));
-			if (!STREAMING::IS_MODEL_IN_CDIMAGE(model_hash) ||
-				!STREAMING::IS_MODEL_VALID(model_hash) ||
-				!STREAMING::IS_MODEL_A_VEHICLE(model_hash))
+			const auto native_model_hash = static_cast<Hash>(model_hash);
+			if (!STREAMING::IS_MODEL_IN_CDIMAGE(native_model_hash) ||
+				!STREAMING::IS_MODEL_VALID(native_model_hash) ||
+				!STREAMING::IS_MODEL_A_VEHICLE(native_model_hash))
 			{
 				g_vehicle_settings.spawn_status.store(vehicle_spawn_status::invalid_model, std::memory_order_relaxed);
 				return;
 			}
 
-			STREAMING::REQUEST_MODEL(model_hash);
+			STREAMING::REQUEST_MODEL(native_model_hash);
 			const auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(8);
-			while (!STREAMING::HAS_MODEL_LOADED(model_hash))
+			while (!STREAMING::HAS_MODEL_LOADED(native_model_hash))
 			{
 				if (std::chrono::steady_clock::now() >= timeout)
 				{
-					STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(model_hash);
+					STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(native_model_hash);
 					g_vehicle_settings.spawn_status.store(vehicle_spawn_status::load_failed, std::memory_order_relaxed);
 					return;
 				}
 
-				STREAMING::REQUEST_MODEL(model_hash);
+				STREAMING::REQUEST_MODEL(native_model_hash);
 				if (auto* current = script::get_current())
 					current->yield();
 				else
 				{
-					STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(model_hash);
+					STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(native_model_hash);
 					g_vehicle_settings.spawn_status.store(vehicle_spawn_status::load_failed, std::memory_order_relaxed);
 					return;
 				}
@@ -253,7 +249,7 @@ namespace big::menu_pages
 			const auto spawn_position = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(player_ped, 0.0f, 5.0f, 0.0f);
 			const float heading = ENTITY::GET_ENTITY_HEADING(player_ped);
 			const Vehicle vehicle = VEHICLE::CREATE_VEHICLE(
-				model_hash,
+				native_model_hash,
 				spawn_position.x,
 				spawn_position.y,
 				spawn_position.z,
@@ -273,7 +269,7 @@ namespace big::menu_pages
 				g_vehicle_settings.spawn_status.store(vehicle_spawn_status::load_failed, std::memory_order_relaxed);
 			}
 
-			STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(model_hash);
+			STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(native_model_hash);
 		});
 
 		if (!queued)
@@ -351,18 +347,27 @@ namespace big::menu_pages
 	{
 		menu_ui::page_title(
 			"Vehicle",
-			"Browse local vehicle data, spawn by model, and control the vehicle you are currently driving.");
+			"Browse the complete JOAAT vehicle catalog, spawn by model hash, and control your current vehicle.");
 
-		if (menu_ui::begin_section("VehicleSpawner", "Local Vehicle Spawner", 385.0f))
+		if (menu_ui::begin_section("VehicleSpawner", "Local Vehicle Spawner", 455.0f))
 		{
 			draw_vehicle_catalog();
 
 			ImGui::SetNextItemWidth(-1.0f);
-			ImGui::InputTextWithHint(
+			if (ImGui::InputTextWithHint(
 				"##VehicleModel",
 				"Raw vehicle model name...",
 				g_vehicle_settings.spawn_model.data(),
-				g_vehicle_settings.spawn_model.size());
+				g_vehicle_settings.spawn_model.size()))
+			{
+				g_vehicle_settings.selected_model_hash = 0;
+			}
+
+			const std::uint32_t active_hash =
+				g_vehicle_settings.selected_model_hash != 0 ?
+					g_vehicle_settings.selected_model_hash :
+					vehicle_joaat(g_vehicle_settings.spawn_model.data());
+			ImGui::TextDisabled("Active model JOAAT: 0x%08X (%u)", active_hash, active_hash);
 			ImGui::Checkbox("Spawn Inside Vehicle", &g_vehicle_settings.spawn_inside);
 			ImGui::SameLine();
 			ImGui::TextDisabled("Local spawn only");
@@ -371,7 +376,12 @@ namespace big::menu_pages
 			const bool loading = status == vehicle_spawn_status::loading;
 			ImGui::BeginDisabled(loading);
 			if (ImGui::Button(loading ? "Loading..." : "Spawn Selected Vehicle", ImVec2(205.0f, 0.0f)))
-				queue_vehicle_spawn(g_vehicle_settings.spawn_model.data(), g_vehicle_settings.spawn_inside);
+			{
+				queue_vehicle_spawn(
+					g_vehicle_settings.spawn_model.data(),
+					g_vehicle_settings.selected_model_hash,
+					g_vehicle_settings.spawn_inside);
+			}
 			ImGui::EndDisabled();
 			ImGui::SameLine();
 			menu_ui::status_badge(spawn_status_text(status), status == vehicle_spawn_status::spawned);
