@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <intrin.h>
 #include "fwddec.hpp"
 
