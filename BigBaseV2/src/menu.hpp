@@ -14,6 +14,7 @@ namespace big
 			vehicle,
 			teleport,
 			world,
+			network,
 			players,
 			settings,
 			lua
