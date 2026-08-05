@@ -3,6 +3,8 @@
 #include <SDKDDKVer.h>
 #include <Windows.h>
 #include <D3D11.h>
+#include <D3D12.h>
+#include <dxgi1_4.h>
 #include <wrl/client.h>
 
 #include <cinttypes>
@@ -62,6 +64,7 @@ namespace big
 	inline HANDLE g_main_thread{};
 	inline DWORD g_main_thread_id{};
 	inline std::atomic_bool g_running{ true };
+	inline std::atomic_bool g_is_enhanced{ true };
 	
 	struct stackwalker : public StackWalker
 	{
