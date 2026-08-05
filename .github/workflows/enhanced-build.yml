@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/new-menu-base
+      - feature/enhanced-imgui192
   pull_request:
   workflow_dispatch:
 
