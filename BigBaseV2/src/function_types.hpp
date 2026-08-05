@@ -3,11 +3,6 @@
 #include "gta/fwddec.hpp"
 #include "gta/natives.hpp"
 
-namespace rage
-{
-	struct scrProgram;
-}
-
 namespace big::functions
 {
 	using run_script_threads_t = bool(*)(std::uint32_t ops_to_execute);
