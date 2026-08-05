@@ -12,27 +12,40 @@ namespace big::menu_pages
 		loading,
 		spawned,
 		invalid_model,
-		load_failed
+		load_failed,
+		queue_failed
+	};
+
+	enum class vehicle_action_status
+	{
+		idle,
+		queued,
+		completed,
+		no_vehicle,
+		queue_failed
 	};
 
 	struct vehicle_settings final
 	{
-		bool god_mode{};
-		bool repair_loop{};
-		bool seatbelt{};
-		bool horn_boost{};
-		bool rainbow_paint{};
-		float acceleration_multiplier{1.0f};
-		float gravity_multiplier{1.0f};
+		std::atomic_bool god_mode{};
+		std::atomic_bool repair_loop{};
+		std::atomic_bool seatbelt{true};
+		std::atomic_bool horn_boost{};
+		std::atomic_bool disable_gravity{};
+		std::atomic_bool rainbow_paint{};
+		std::atomic<float> acceleration_multiplier{1.0f};
 
 		std::array<char, 64> spawn_model{'a', 'd', 'd', 'e', 'r', '\0'};
+		std::array<char, 64> catalog_search{};
 		bool spawn_inside{true};
-		bool spawn_networked{true};
+		int category_index{};
 		std::atomic<vehicle_spawn_status> spawn_status{vehicle_spawn_status::idle};
+		std::atomic<vehicle_action_status> action_status{vehicle_action_status::idle};
 	};
 
 	inline vehicle_settings g_vehicle_settings;
 
 	void draw_vehicle();
-	void queue_vehicle_spawn(std::string model_name, bool put_player_inside, bool networked);
+	void tick_vehicle();
+	void queue_vehicle_spawn(std::string model_name, bool put_player_inside);
 }
