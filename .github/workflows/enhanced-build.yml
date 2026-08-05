@@ -55,20 +55,45 @@ jobs:
             --output BigBaseV2/src/crossmap_enhanced.hpp `
             --source-ref "YimMenu/YimMenuV2:enhanced"
 
-      - name: Validate generated table
+      - name: Generate JOAAT vehicle catalog
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          py scripts/generate_vehicle_catalog.py `
+            --output BigBaseV2/src/menu/pages/vehicle_catalog_generated.hpp `
+            --expected-count 921
+
+      - name: Validate generated Enhanced data
         shell: powershell
         run: |
-          $path = "BigBaseV2/src/crossmap_enhanced.hpp"
-          if (-not (Test-Path $path)) {
+          $crossmap = "BigBaseV2/src/crossmap_enhanced.hpp"
+          if (-not (Test-Path $crossmap)) {
             throw "crossmap_enhanced.hpp was not generated"
           }
-          $content = Get-Content $path -Raw
-          if ($content -notmatch "std::array<rage::scrNativeHash, 6720>") {
-            throw "Generated table does not contain 6720 hashes"
+          $crossmapContent = Get-Content $crossmap -Raw
+          if ($crossmapContent -notmatch "std::array<rage::scrNativeHash, 6720>") {
+            throw "Generated native table does not contain 6720 hashes"
           }
-          $hashCount = ([regex]::Matches($content, "0x[0-9A-Fa-f]{1,16}")).Count
-          if ($hashCount -ne 6720) {
-            throw "Expected 6720 hashes but found $hashCount"
+          $nativeHashCount = ([regex]::Matches($crossmapContent, "0x[0-9A-Fa-f]{1,16}")).Count
+          if ($nativeHashCount -ne 6720) {
+            throw "Expected 6720 native hashes but found $nativeHashCount"
+          }
+
+          $vehicleCatalog = "BigBaseV2/src/menu/pages/vehicle_catalog_generated.hpp"
+          if (-not (Test-Path $vehicleCatalog)) {
+            throw "vehicle_catalog_generated.hpp was not generated"
+          }
+          $vehicleContent = Get-Content $vehicleCatalog -Raw
+          if ($vehicleContent -notmatch "std::array<vehicle_catalog_entry, 921>") {
+            throw "Generated vehicle catalog does not contain 921 entries"
+          }
+          if ($vehicleContent -notmatch "source-blob: 2ccc0b29cc3729609f03994f57078622bb0fe5d9") {
+            throw "Generated vehicle catalog is not pinned to the approved blob"
+          }
+          $vehicleEntryCount = ([regex]::Matches($vehicleContent, '\{0x[0-9A-F]{8}u, "[a-z0-9_]+"\},')).Count
+          if ($vehicleEntryCount -ne 921) {
+            throw "Expected 921 JOAAT vehicle entries but found $vehicleEntryCount"
           }
 
       - name: Generate Visual Studio solution
