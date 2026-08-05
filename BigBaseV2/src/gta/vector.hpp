@@ -18,7 +18,15 @@ namespace rage
 		float y{};
 		float z{};
 
-		[[nodiscard]] constexpr bool operator==(const vector3& other) const noexcept = default;
+		[[nodiscard]] constexpr bool operator==(const vector3& other) const noexcept
+		{
+			return x == other.x && y == other.y && z == other.z;
+		}
+
+		[[nodiscard]] constexpr bool operator!=(const vector3& other) const noexcept
+		{
+			return !(*this == other);
+		}
 
 		[[nodiscard]] constexpr vector3 operator+(const vector3& other) const noexcept
 		{
