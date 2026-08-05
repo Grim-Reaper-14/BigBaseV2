@@ -1,5 +1,5 @@
 #pragma once
-#include "fwddec.hpp"
+
 #include "base.hpp"
 
 namespace rage
@@ -8,16 +8,33 @@ namespace rage
 	class atDNode : public Base
 	{
 	public:
-		T m_data;
-		void *m_unk;
-		atDNode<T, Base> *m_next;
+		T m_data{};
+		void* m_unknown{};
+		atDNode<T, Base>* m_next{};
 	};
 
 	template <typename Node>
 	class atDList
 	{
 	public:
-		Node *m_head;
-		Node *m_tail;
+		[[nodiscard]] bool empty() const noexcept
+		{
+			return m_head == nullptr;
+		}
+
+		[[nodiscard]] Node* front() noexcept
+		{
+			return m_head;
+		}
+
+		[[nodiscard]] const Node* front() const noexcept
+		{
+			return m_head;
+		}
+
+		Node* m_head{};
+		Node* m_tail{};
 	};
+
+	static_assert(sizeof(atDList<atDNode<void*>>) == 0x10);
 }
