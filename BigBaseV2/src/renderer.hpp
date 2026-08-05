@@ -35,6 +35,67 @@ namespace big
 				m_render_targets.size() == m_frames.size();
 		}
 
+		[[nodiscard]] ID3D12Device* d3d_device() const noexcept
+		{
+			return m_d3d_device.Get();
+		}
+
+		[[nodiscard]] ID3D12CommandQueue* command_queue() const noexcept
+		{
+			return m_command_queue.Get();
+		}
+
+		[[nodiscard]] bool reserve_srv_descriptor(
+			D3D12_CPU_DESCRIPTOR_HANDLE& cpu_handle,
+			D3D12_GPU_DESCRIPTOR_HANDLE& gpu_handle) noexcept
+		{
+			cpu_handle = {};
+			gpu_handle = {};
+			if (!m_srv_heap || !m_srv_descriptor_size)
+				return false;
+
+			std::scoped_lock lock(m_srv_mutex);
+			if (m_free_srv_descriptors.empty())
+				return false;
+
+			const auto index = m_free_srv_descriptors.back();
+			m_free_srv_descriptors.pop_back();
+			m_srv_descriptor_in_use[index] = true;
+			cpu_handle = srv_cpu_handle(index);
+			gpu_handle = srv_gpu_handle(index);
+			return true;
+		}
+
+		void release_srv_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle) noexcept
+		{
+			if (!m_srv_heap || !m_srv_descriptor_size || !cpu_handle.ptr)
+				return;
+
+			const auto base = m_srv_heap->GetCPUDescriptorHandleForHeapStart();
+			if (cpu_handle.ptr < base.ptr)
+				return;
+
+			const auto offset = cpu_handle.ptr - base.ptr;
+			if (offset % m_srv_descriptor_size != 0)
+				return;
+
+			const auto index = static_cast<std::uint32_t>(offset / m_srv_descriptor_size);
+			if (index >= m_srv_descriptor_in_use.size())
+				return;
+
+			std::scoped_lock lock(m_srv_mutex);
+			if (!m_srv_descriptor_in_use[index])
+				return;
+
+			m_srv_descriptor_in_use[index] = false;
+			m_free_srv_descriptors.push_back(index);
+		}
+
+		void synchronize_gpu() noexcept
+		{
+			wait_for_gpu();
+		}
+
 		ImFont* m_font{};
 		ImFont* m_monospace_font{};
 
