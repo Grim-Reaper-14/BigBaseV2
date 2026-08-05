@@ -371,22 +371,22 @@ namespace big::menu_pages
 				return false;
 			}
 
-			ID3D12CommandList* command_lists[]{command_list.Get()};
-			queue->ExecuteCommandLists(1, command_lists);
-
 			comptr<ID3D12Fence> upload_fence;
+			event_handle upload_event;
 			if (FAILED(device->CreateFence(
 				0,
 				D3D12_FENCE_FLAG_NONE,
-				IID_PPV_ARGS(upload_fence.GetAddressOf()))))
+				IID_PPV_ARGS(upload_fence.GetAddressOf()))) || !upload_event.get())
 			{
-				error = "DX12 failed to create the vehicle preview upload fence.";
+				error = "DX12 failed to create vehicle preview upload synchronization.";
 				return false;
 			}
 
-			event_handle upload_event;
-			if (!upload_event.get() || FAILED(queue->Signal(upload_fence.Get(), 1)))
+			ID3D12CommandList* command_lists[]{command_list.Get()};
+			queue->ExecuteCommandLists(1, command_lists);
+			if (FAILED(queue->Signal(upload_fence.Get(), 1)))
 			{
+				g_renderer->synchronize_gpu();
 				error = "DX12 failed to signal the vehicle preview upload fence.";
 				return false;
 			}
@@ -396,6 +396,7 @@ namespace big::menu_pages
 				if (FAILED(upload_fence->SetEventOnCompletion(1, upload_event.get())) ||
 					WaitForSingleObject(upload_event.get(), INFINITE) != WAIT_OBJECT_0)
 				{
+					g_renderer->synchronize_gpu();
 					error = "DX12 failed while waiting for the vehicle preview upload.";
 					return false;
 				}
@@ -434,7 +435,7 @@ namespace big::menu_pages
 
 			const vehicle_preview* get(std::string_view model_name, std::uint32_t model_hash)
 			{
-				initialize_directory();
+				ensure_directory();
 				const std::string key = normalize_model_name(model_name) + ':' + std::to_string(model_hash);
 				auto& entry = m_entries[key];
 				entry.last_used = ++m_usage_counter;
@@ -470,7 +471,7 @@ namespace big::menu_pages
 			{
 				clear_entries();
 				m_last_error.clear();
-				initialize_directory();
+				ensure_directory(true);
 			}
 
 			void shutdown() noexcept
@@ -481,7 +482,7 @@ namespace big::menu_pages
 
 			const std::filesystem::path& directory()
 			{
-				initialize_directory();
+				ensure_directory();
 				return m_directory;
 			}
 
@@ -491,14 +492,16 @@ namespace big::menu_pages
 			}
 
 		private:
-			void initialize_directory()
+			void ensure_directory(bool recreate = false)
 			{
-				if (!m_directory.empty())
+				if (m_directory.empty())
+					m_directory = module_directory() / L"Images" / L"Vehicles";
+				if (!recreate && m_directory_ready)
 					return;
 
-				m_directory = module_directory() / L"Images" / L"Vehicles";
 				std::error_code error;
 				std::filesystem::create_directories(m_directory, error);
+				m_directory_ready = !error;
 				if (error)
 					m_last_error = "Could not create the vehicle preview directory: " + error.message();
 			}
@@ -515,7 +518,6 @@ namespace big::menu_pages
 				{
 					if (stem.empty())
 						continue;
-
 					for (const auto* extension : preview_extensions)
 					{
 						auto candidate = m_directory / std::filesystem::path(stem);
@@ -576,6 +578,7 @@ namespace big::menu_pages
 			std::unordered_map<std::string, cached_preview> m_entries;
 			std::string m_last_error;
 			std::uint64_t m_usage_counter{};
+			bool m_directory_ready{};
 		};
 
 		vehicle_preview_cache g_vehicle_preview_cache;
