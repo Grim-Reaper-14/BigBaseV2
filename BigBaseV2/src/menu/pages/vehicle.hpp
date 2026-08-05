@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <string>
 
 namespace big::menu_pages
@@ -37,8 +38,8 @@ namespace big::menu_pages
 
 		std::array<char, 64> spawn_model{'a', 'd', 'd', 'e', 'r', '\0'};
 		std::array<char, 64> catalog_search{};
+		std::uint32_t selected_model_hash{3078201489u};
 		bool spawn_inside{true};
-		int category_index{};
 		std::atomic<vehicle_spawn_status> spawn_status{vehicle_spawn_status::idle};
 		std::atomic<vehicle_action_status> action_status{vehicle_action_status::idle};
 	};
@@ -47,5 +48,8 @@ namespace big::menu_pages
 
 	void draw_vehicle();
 	void tick_vehicle();
-	void queue_vehicle_spawn(std::string model_name, bool put_player_inside);
+	void queue_vehicle_spawn(
+		std::string model_name,
+		std::uint32_t selected_model_hash,
+		bool put_player_inside);
 }
