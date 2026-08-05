@@ -1,21 +1,28 @@
 #pragma once
-#include <cstddef>
-#include <intrin.h>
+
 #include "fwddec.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <intrin.h>
 
 namespace rage
 {
 	class tlsContext
 	{
 	public:
-		char m_padding[0x7A0];                 // 0x000
-		scrThread* m_script_thread;             // 0x7A0
-		bool m_is_script_thread_active;         // 0x7A8
-		char m_tail_padding[0x7];               // 0x7A9
+		std::byte m_padding[0x7A0]{};          // 0x000
+		scrThread* m_script_thread{};          // 0x7A0
+		bool m_is_script_thread_active{};      // 0x7A8
+		std::byte m_tail_padding[0x07]{};      // 0x7A9
 
-		static tlsContext* get()
+		[[nodiscard]] static tlsContext* get() noexcept
 		{
-			return *reinterpret_cast<tlsContext**>(__readgsqword(0x58));
+			const auto tls_array = __readgsqword(0x58);
+			if (!tls_array)
+				return nullptr;
+
+			return *reinterpret_cast<tlsContext**>(tls_array);
 		}
 	};
 
