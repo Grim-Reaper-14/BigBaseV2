@@ -116,7 +116,8 @@ if (-not (Test-Path $luaHeader) -or $installedLuaVersion -ne $LuaVersion) {
 
 Assert-File (Join-Path $vendor "ImGui\imgui.h") "Dear ImGui header"
 Assert-File (Join-Path $vendor "ImGui\imgui_tables.cpp") "Dear ImGui tables source"
-Assert-File (Join-Path $vendor "ImGui\backends\imgui_impl_dx11.cpp") "Dear ImGui DX11 backend"
+Assert-File (Join-Path $vendor "ImGui\backends\imgui_impl_dx12.cpp") "Dear ImGui DX12 backend"
+Assert-File (Join-Path $vendor "ImGui\backends\imgui_impl_dx12.h") "Dear ImGui DX12 backend header"
 Assert-File (Join-Path $vendor "fmtlib\include\fmt\format.h") "fmt header"
 Assert-File (Join-Path $vendor "json\single_include\nlohmann\json.hpp") "nlohmann/json single header"
 Assert-File (Join-Path $vendor "MinHook\include\MinHook.h") "MinHook header"
@@ -136,7 +137,7 @@ if ($luaHeaderContent -notmatch ('#define\s+LUA_VERSION_RELEASE\s+"' + [regex]::
 }
 
 Write-Host "Vendor dependencies are ready:" -ForegroundColor Green
-Write-Host "  Dear ImGui  $ImGuiVersion"
+Write-Host "  Dear ImGui  $ImGuiVersion (DX12)"
 Write-Host "  fmt         $FmtVersion"
 Write-Host "  JSON        $JsonVersion"
 Write-Host "  MinHook     $MinHookVersion"
