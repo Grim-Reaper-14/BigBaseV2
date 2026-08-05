@@ -25,6 +25,11 @@ workspace "BigBaseV2"
   MsvcToolset = "v143"
   WindowsSdkVersion = "latest"
 
+  VehicleCatalogPath = "BigBaseV2/src/menu/pages/vehicle_catalog_generated.hpp"
+  if not os.isfile(VehicleCatalogPath) then
+    error("Missing generated vehicle catalog. Run: py scripts/generate_vehicle_catalog.py")
+  end
+
   function DeclareMSVCOptions()
     filter "system:windows"
     staticruntime "Off"
