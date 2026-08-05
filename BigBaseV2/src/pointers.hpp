@@ -40,7 +40,7 @@ namespace big
 		[[nodiscard]] bool scripts_ready() const noexcept;
 		[[nodiscard]] bool native_ready() const noexcept;
 		[[nodiscard]] bool network_ready() const noexcept;
-		[[nodiscard]] bool legacy_native_lookup_ready() const noexcept;
+		[[nodiscard]] bool registration_table_lookup_ready() const noexcept;
 		[[nodiscard]] bool fully_ready() const noexcept;
 		[[nodiscard]] const resolution_report& report() const noexcept;
 		[[nodiscard]] std::vector<std::string> missing_required() const;
@@ -54,7 +54,7 @@ namespace big
 		CPedFactory** m_ped_factory{};
 		CNetworkPlayerMgr** m_network_player_mgr{};
 
-		// Optional legacy registration lookup retained for diagnostics only.
+		// Optional registration-table lookup retained for Enhanced diagnostics.
 		rage::scrNativeRegistrationTable* m_native_registration_table{};
 		functions::get_native_handler_t m_get_native_handler{};
 
