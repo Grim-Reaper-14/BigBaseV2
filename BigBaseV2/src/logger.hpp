@@ -75,7 +75,7 @@ namespace big
 		}
 
 		template <typename... Args>
-		void log(log_color color, std::string_view prefix, fmt::format_string<Args...> format, Args&&... args)
+		void log(log_color color, std::string_view prefix, fmt::string_view format, Args&&... args)
 		{
 			const auto message = fmt::format(format, std::forward<Args>(args)...);
 			const auto timestamps = make_timestamps();
@@ -190,28 +190,28 @@ namespace big
 	};
 
 	template <typename... Args>
-	inline void log_info(fmt::format_string<Args...> format, Args&&... args)
+	inline void log_info(fmt::string_view format, Args&&... args)
 	{
 		if (g_logger)
 			g_logger->log(log_color::blue | log_color::green | log_color::intensify, "Info", format, std::forward<Args>(args)...);
 	}
 
 	template <typename... Args>
-	inline void log_warning(fmt::format_string<Args...> format, Args&&... args)
+	inline void log_warning(fmt::string_view format, Args&&... args)
 	{
 		if (g_logger)
 			g_logger->log(log_color::yellow | log_color::intensify, "Warning", format, std::forward<Args>(args)...);
 	}
 
 	template <typename... Args>
-	inline void log_error(fmt::format_string<Args...> format, Args&&... args)
+	inline void log_error(fmt::string_view format, Args&&... args)
 	{
 		if (g_logger)
 			g_logger->log(log_color::red | log_color::intensify, "Error", format, std::forward<Args>(args)...);
 	}
 
 	template <typename... Args>
-	inline void log_trace(fmt::format_string<Args...> format, Args&&... args)
+	inline void log_trace(fmt::string_view format, Args&&... args)
 	{
 		if (g_logger)
 			g_logger->log(log_color::white, "Trace", format, std::forward<Args>(args)...);
