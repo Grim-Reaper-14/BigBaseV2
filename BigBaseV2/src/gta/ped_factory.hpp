@@ -2,16 +2,28 @@
 
 #include "fwddec.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
-#pragma pack(push, 1)
 class CPed
 {
 public:
-	char m_padding[0x10B8];
-	CPlayerInfo* m_playerinfo;
+	// Enhanced field offsets are isolated behind accessors so this header does
+	// not pretend to describe the complete CPed object.
+	inline static constexpr std::ptrdiff_t player_info_offset = 0x10B8;
+
+	[[nodiscard]] CPlayerInfo* player_info() noexcept
+	{
+		return *reinterpret_cast<CPlayerInfo**>(
+			reinterpret_cast<std::byte*>(this) + player_info_offset);
+	}
+
+	[[nodiscard]] const CPlayerInfo* player_info() const noexcept
+	{
+		return *reinterpret_cast<CPlayerInfo* const*>(
+			reinterpret_cast<const std::byte*>(this) + player_info_offset);
+	}
 };
-#pragma pack(pop)
 
 class CPedFactory
 {
