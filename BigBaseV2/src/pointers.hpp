@@ -81,7 +81,7 @@ namespace big
 
 		PVOID m_queue_dependency{};
 		PVOID m_sig_scan_memory{};
-		PVOID m_script_vm{};
+		functions::script_vm_t m_script_vm{};
 
 		functions::handle_to_ptr_t m_handle_to_ptr{};
 		functions::ptr_to_handle_t m_ptr_to_handle{};
