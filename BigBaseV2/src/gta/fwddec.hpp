@@ -15,10 +15,10 @@ namespace rage
 	class scriptHandlerObject;
 	class scriptHandlerMgr;
 
-	class scrProgram;
+	struct scrProgram;
 	class scrProgramTable;
 
-	class scrThreadContext;
+	struct scrThreadContext;
 	class scrThread;
 	class tlsContext;
 
