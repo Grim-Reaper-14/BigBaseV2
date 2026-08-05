@@ -73,9 +73,9 @@ namespace big
 			m_script_program_table = pointer.add(17).rip().as<decltype(m_script_program_table)>();
 		});
 
-		required_batch.add("Script globals", "48 8D 15 ? ? ? ? 4C 8B C0 E8 ? ? ? ? 48 85 FF 48 89 1D", [this](memory::handle pointer)
+		required_batch.add("Script globals", "48 8B 8E B8 00 00 00 48 8D 15 ? ? ? ? 49 89 D8", [this](memory::handle pointer)
 		{
-			m_script_globals = pointer.add(3).rip().as<std::int64_t**>();
+			m_script_globals = pointer.add(7).add(3).rip().as<std::int64_t**>();
 		});
 
 		required_batch.add("CGameScriptHandlerMgr", "48 8B 0D ? ? ? ? 4C 8B CE E8 ? ? ? ? 48 85 C0 74 05 40 32 FF", [this](memory::handle pointer)
