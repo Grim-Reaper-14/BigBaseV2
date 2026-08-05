@@ -1,5 +1,6 @@
 #include "vehicle.hpp"
 #include "vehicle_catalog.hpp"
+#include "vehicle_preview.hpp"
 #include "../widgets.hpp"
 
 #include "../../fiber_pool.hpp"
@@ -181,6 +182,78 @@ namespace big::menu_pages
 			}
 			ImGui::EndChild();
 		}
+
+		void draw_vehicle_preview(std::string_view model_name, std::uint32_t model_hash)
+		{
+			ImGui::BeginChild("SelectedVehiclePreview", ImVec2(0.0f, 225.0f), true);
+			ImGui::TextUnformatted("Selected Vehicle Preview");
+			ImGui::SameLine();
+			const float refresh_width = 132.0f;
+			const float refresh_position = ImGui::GetWindowWidth() - refresh_width - ImGui::GetStyle().WindowPadding.x;
+			if (refresh_position > ImGui::GetCursorPosX())
+				ImGui::SetCursorPosX(refresh_position);
+			if (ImGui::Button("Refresh Preview", ImVec2(refresh_width, 0.0f)))
+				refresh_vehicle_previews();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			const vehicle_preview* preview = get_vehicle_preview(model_name, model_hash);
+			const ImVec2 image_area(ImGui::GetContentRegionAvail().x, 135.0f);
+			const ImVec2 area_min = ImGui::GetCursorScreenPos();
+			ImGui::Dummy(image_area);
+			const ImVec2 area_max(area_min.x + image_area.x, area_min.y + image_area.y);
+			auto* draw_list = ImGui::GetWindowDrawList();
+			draw_list->AddRectFilled(area_min, area_max, ImGui::GetColorU32(ImVec4(0.035f, 0.040f, 0.052f, 1.0f)), 5.0f);
+			draw_list->AddRect(area_min, area_max, ImGui::GetColorU32(ImGuiCol_Border), 5.0f);
+
+			if (preview && *preview)
+			{
+				const float scale = std::min(
+					image_area.x / static_cast<float>(preview->width),
+					image_area.y / static_cast<float>(preview->height));
+				const ImVec2 image_size(
+					static_cast<float>(preview->width) * scale,
+					static_cast<float>(preview->height) * scale);
+				const ImVec2 image_min(
+					area_min.x + (image_area.x - image_size.x) * 0.5f,
+					area_min.y + (image_area.y - image_size.y) * 0.5f);
+				const ImVec2 image_max(image_min.x + image_size.x, image_min.y + image_size.y);
+				draw_list->AddImage(preview->texture_id, image_min, image_max);
+
+				if (ImGui::IsMouseHoveringRect(image_min, image_max))
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("%s", preview->source_path.filename().string().c_str());
+					ImGui::TextDisabled("%u x %u", preview->width, preview->height);
+					ImGui::EndTooltip();
+				}
+				ImGui::TextDisabled("Source: %s", preview->source_path.filename().string().c_str());
+			}
+			else
+			{
+				const char* missing_text = "No preview image found";
+				const ImVec2 text_size = ImGui::CalcTextSize(missing_text);
+				draw_list->AddText(
+					ImVec2(
+						area_min.x + (image_area.x - text_size.x) * 0.5f,
+						area_min.y + (image_area.y - text_size.y) * 0.5f),
+					ImGui::GetColorU32(menu_ui::text_muted),
+					missing_text);
+				ImGui::TextDisabled(
+					"Add %s.png or %08X.png to the preview folder.",
+					std::string(model_name).c_str(),
+					model_hash);
+			}
+
+			ImGui::TextDisabled("Folder: %s", vehicle_preview_directory().string().c_str());
+			if (!vehicle_preview_error().empty())
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.92f, 0.35f, 0.35f, 1.0f));
+				ImGui::TextWrapped("%s", vehicle_preview_error().c_str());
+				ImGui::PopStyleColor();
+			}
+			ImGui::EndChild();
+		}
 	}
 
 	void queue_vehicle_spawn(
@@ -347,9 +420,9 @@ namespace big::menu_pages
 	{
 		menu_ui::page_title(
 			"Vehicle",
-			"Browse the complete JOAAT vehicle catalog, spawn by model hash, and control your current vehicle.");
+			"Browse the complete JOAAT vehicle catalog, spawn by model hash, preview local artwork, and control your current vehicle.");
 
-		if (menu_ui::begin_section("VehicleSpawner", "Local Vehicle Spawner", 455.0f))
+		if (menu_ui::begin_section("VehicleSpawner", "Local Vehicle Spawner", 685.0f))
 		{
 			draw_vehicle_catalog();
 
@@ -368,6 +441,10 @@ namespace big::menu_pages
 					g_vehicle_settings.selected_model_hash :
 					vehicle_joaat(g_vehicle_settings.spawn_model.data());
 			ImGui::TextDisabled("Active model JOAAT: 0x%08X (%u)", active_hash, active_hash);
+
+			draw_vehicle_preview(g_vehicle_settings.spawn_model.data(), active_hash);
+			ImGui::Spacing();
+
 			ImGui::Checkbox("Spawn Inside Vehicle", &g_vehicle_settings.spawn_inside);
 			ImGui::SameLine();
 			ImGui::TextDisabled("Local spawn only");
