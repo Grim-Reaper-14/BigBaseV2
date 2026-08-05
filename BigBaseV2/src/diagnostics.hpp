@@ -17,7 +17,7 @@ namespace big
 		bool pointer_renderer_ready{};
 		bool pointer_scripts_ready{};
 		bool pointer_network_ready{};
-		bool legacy_native_lookup_ready{};
+		bool registration_table_lookup_ready{};
 		bool renderer_ready{};
 		bool hooks_enabled{};
 		bool native_cache_healthy{};
@@ -45,7 +45,7 @@ namespace big
 			result.pointer_renderer_ready = g_pointers->renderer_ready();
 			result.pointer_scripts_ready = g_pointers->scripts_ready();
 			result.pointer_network_ready = g_pointers->network_ready();
-			result.legacy_native_lookup_ready = g_pointers->legacy_native_lookup_ready();
+			result.registration_table_lookup_ready = g_pointers->registration_table_lookup_ready();
 			result.pointers_ready = g_pointers->fully_ready();
 
 			const auto& report = g_pointers->report();
