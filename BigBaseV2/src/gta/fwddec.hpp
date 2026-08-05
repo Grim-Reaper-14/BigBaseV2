@@ -5,17 +5,21 @@ namespace rage
 	template <typename T>
 	class atArray;
 
+	class datBase;
+	class pgBase;
 	class datBitBuffer;
 	class sysMemAllocator;
 
 	class scriptIdBase;
 	class scriptId;
+	class scriptResource;
 	class scriptHandler;
 	class scriptHandlerNetComponent;
 	class scriptHandlerObject;
 	class scriptHandlerMgr;
 
 	struct scrProgram;
+	struct scrProgramTableEntry;
 	class scrProgramTable;
 
 	struct scrThreadContext;
@@ -24,9 +28,13 @@ namespace rage
 
 	class netLoggingInterface;
 	class netLogStub;
+	class rlGamerInfo;
+	class netConnectionManager;
 
+	class netPlayerData;
+	class nonPhysicalPlayerDataBase;
 	class netPlayer;
-	class netPlayerMgr;
+	class netPlayerMgrBase;
 
 	class netGameEvent;
 	class netEventMgr;
@@ -44,6 +52,8 @@ namespace rage
 	class scrNativeRegistration;
 	class scrNativeRegistrationTable;
 
+	class fwExtension;
+	struct fwExtensionContainer;
 	class fwRefAwareBase;
 	class fwExtensibleBase;
 	class fwEntity;
@@ -55,7 +65,10 @@ class GtaThread;
 class CGameScriptId;
 class CGameScriptHandler;
 class CGameScriptHandlerNetwork;
+class CGameScriptHandlerNetComponent;
 class CGameScriptHandlerMgr;
+class CNetGamePlayerDataMsg;
+class CNonPhysicalPlayerData;
 
 class CEntity;
 class CDynamicEntity;
