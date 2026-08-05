@@ -85,8 +85,8 @@ if (-not $solution) {
     throw "BigBaseV2.sln was not generated."
 }
 
-Write-Host "[6/6] Building $Configuration x64..."
+Write-Host "[6/6] Building $Configuration x64 with Dear ImGui $ImGuiVersion and DirectX 12..."
 & $msbuild $solution.FullName /m /p:Configuration=$Configuration /p:Platform=x64 /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { throw "MSBuild failed." }
 
-Write-Host "Enhanced build completed successfully with validated vendor dependencies." -ForegroundColor Green
+Write-Host "Enhanced DX12 build completed successfully with validated vendor dependencies." -ForegroundColor Green
