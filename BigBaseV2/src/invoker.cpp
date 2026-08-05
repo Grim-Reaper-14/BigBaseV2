@@ -126,7 +126,8 @@ namespace big
 		__try
 		{
 			iterator->second(&m_call_context);
-			g_pointers->m_fix_vectors(&m_call_context);
+			if (g_pointers && g_pointers->m_fix_vectors)
+				g_pointers->m_fix_vectors(&m_call_context);
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
