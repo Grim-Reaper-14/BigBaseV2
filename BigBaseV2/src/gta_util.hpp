@@ -38,13 +38,16 @@ namespace big::gta_util
 
 		for (auto* thread : *g_pointers->m_script_threads)
 		{
-			if (!thread || !thread->m_context.m_thread_id || thread->m_context.m_script_hash != script_hash)
+			if (!thread || !thread->m_context.m_thread_id ||
+				static_cast<rage::joaat_t>(thread->m_context.m_script_hash) != script_hash)
+			{
 				continue;
+			}
 
 			struct tls_restore final
 			{
 				rage::tlsContext* context;
-				GtaThread* original_thread;
+				rage::scrThread* original_thread;
 				bool original_active;
 
 				~tls_restore()
