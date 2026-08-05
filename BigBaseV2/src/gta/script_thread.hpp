@@ -50,22 +50,20 @@ namespace rage
 			return context ? context->m_script_thread : nullptr;
 		}
 
-		scrThreadContext m_context;         // 0x008
-		void* m_stack{};                    // 0x0B8
-		std::byte m_padding0[0x04]{};       // 0x0C0
-		std::uint32_t m_parameter_size{};   // 0x0C4
+		scrThreadContext m_context;          // 0x008
+		void* m_stack{};                     // 0x0B8
+		std::byte m_padding0[0x04]{};        // 0x0C0
+		std::uint32_t m_parameter_size{};    // 0x0C4
 		std::uint32_t m_parameter_location{};// 0x0C8
-		std::byte m_padding1[0x04]{};       // 0x0CC
-		char m_error_message[0x80]{};       // 0x0D0
-		std::uint32_t m_script_hash{};      // 0x150
-		char m_name[0x40]{};                // 0x154
+		std::byte m_padding1[0x04]{};        // 0x0CC
+		char m_error_message[0x80]{};        // 0x0D0
+		std::uint32_t m_script_hash{};       // 0x150
+		char m_name[0x40]{};                 // 0x154
 	};
 
 	static_assert(offsetof(scrThreadContext, m_script_hash) == 0x08);
 	static_assert(offsetof(scrThreadContext, m_stack_size) == 0x58);
 	static_assert(sizeof(scrThreadContext) == 0xB0);
-	static_assert(offsetof(scrThread, m_context) == 0x08);
-	static_assert(offsetof(scrThread, m_script_hash) == 0x150);
 	static_assert(sizeof(scrThread) == 0x198);
 }
 
