@@ -5,9 +5,11 @@ param(
     [string]$MinHookVersion = "v1.3.4",
     [string]$StackWalkerCommit = "7af402408202a5c00021fd57e18e39e7e6f11062",
     [string]$Sol2Version = "v3.3.0",
-    [string]$LuaVersion = "5.4.8"
+    [string]$LuaVersion = "5.4.8",
+    [string]$LuaSha256 = "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae"
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $vendor = Join-Path $root "vendor"
@@ -37,7 +39,7 @@ function Sync-GitDependency {
 
     Write-Host "Synchronizing $Name at $Reference..."
     Invoke-Git -WorkingDirectory $Directory -Arguments @("fetch", "origin", $Reference, "--force", "--quiet")
-    Invoke-Git -WorkingDirectory $Directory -Arguments @("checkout", "--detach", $Reference, "--quiet")
+    Invoke-Git -WorkingDirectory $Directory -Arguments @("checkout", "--detach", "FETCH_HEAD", "--quiet")
 }
 
 function Assert-File {
@@ -51,8 +53,33 @@ function Assert-File {
     }
 }
 
+function Invoke-Download {
+    param(
+        [Parameter(Mandatory = $true)] [string]$Uri,
+        [Parameter(Mandatory = $true)] [string]$OutFile,
+        [int]$Attempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; ++$attempt) {
+        try {
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+            return
+        }
+        catch {
+            Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
+            if ($attempt -eq $Attempts) {
+                throw
+            }
+            Start-Sleep -Seconds ([math]::Pow(2, $attempt - 1))
+        }
+    }
+}
+
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "Git was not found in PATH."
+}
+if (-not (Get-Command tar -ErrorAction SilentlyContinue)) {
+    throw "tar was not found in PATH."
 }
 
 New-Item -ItemType Directory -Path $vendor -Force | Out-Null
@@ -71,26 +98,26 @@ Sync-GitDependency -Name "StackWalker" -Directory (Join-Path $vendor "StackWalke
 
 $sol2Directory = Join-Path $vendor "sol2"
 if (-not (Test-Path (Join-Path $sol2Directory ".git"))) {
-    if (Test-Path $sol2Directory) {
-        Remove-Item $sol2Directory -Recurse -Force
-    }
-
+    Remove-Item $sol2Directory -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "Cloning Sol2 $Sol2Version..."
-    & git clone --branch $Sol2Version --depth 1 https://github.com/ThePhD/sol2.git $sol2Directory
+    & git clone --filter=blob:none --no-checkout https://github.com/ThePhD/sol2.git $sol2Directory
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to clone Sol2 $Sol2Version."
+        throw "Failed to clone Sol2."
     }
 }
-else {
-    Sync-GitDependency -Name "Sol2" -Directory $sol2Directory -Reference $Sol2Version
-}
+Sync-GitDependency -Name "Sol2" -Directory $sol2Directory -Reference $Sol2Version
 
 $luaDirectory = Join-Path $vendor "lua"
 $luaHeader = Join-Path $luaDirectory "src\lua.h"
 $luaVersionMarker = Join-Path $luaDirectory ".bigbase-version"
-$installedLuaVersion = if (Test-Path $luaVersionMarker) { (Get-Content $luaVersionMarker -Raw).Trim() } else { "" }
+$installedLuaVersion = if (Test-Path $luaVersionMarker -PathType Leaf) {
+    (Get-Content $luaVersionMarker -Raw).Trim()
+}
+else {
+    ""
+}
 
-if (-not (Test-Path $luaHeader) -or $installedLuaVersion -ne $LuaVersion) {
+if (-not (Test-Path $luaHeader -PathType Leaf) -or $installedLuaVersion -ne $LuaVersion) {
     Write-Host "Installing Lua $LuaVersion..."
     $archive = Join-Path $env:TEMP "lua-$LuaVersion.tar.gz"
     $extractRoot = Join-Path $env:TEMP "bigbase-lua-$LuaVersion"
@@ -100,15 +127,20 @@ if (-not (Test-Path $luaHeader) -or $installedLuaVersion -ne $LuaVersion) {
     Remove-Item $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
 
-    Invoke-WebRequest -Uri "https://www.lua.org/ftp/lua-$LuaVersion.tar.gz" -OutFile $archive
+    Invoke-Download -Uri "https://www.lua.org/ftp/lua-$LuaVersion.tar.gz" -OutFile $archive
+    $actualLuaSha256 = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualLuaSha256 -ne $LuaSha256.ToLowerInvariant()) {
+        throw "Lua archive checksum mismatch. Expected $LuaSha256 but received $actualLuaSha256."
+    }
+
     & tar -xzf $archive -C $extractRoot
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $sourceDirectory)) {
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $sourceDirectory -PathType Container)) {
         throw "Failed to extract Lua $LuaVersion."
     }
 
     Remove-Item $luaDirectory -Recurse -Force -ErrorAction SilentlyContinue
     Move-Item $sourceDirectory $luaDirectory
-    Set-Content -Path $luaVersionMarker -Value $LuaVersion -Encoding ascii
+    Set-Content -Path $luaVersionMarker -Value $LuaVersion -Encoding ascii -NoNewline
 
     Remove-Item $archive -Force -ErrorAction SilentlyContinue
     Remove-Item $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -129,6 +161,13 @@ Assert-File (Join-Path $luaDirectory "src\lapi.c") "Lua source"
 $imguiHeader = Get-Content (Join-Path $vendor "ImGui\imgui.h") -Raw
 if ($imguiHeader -notmatch ('#define\s+IMGUI_VERSION\s+"' + [regex]::Escape($ImGuiVersion.TrimStart('v')) + '"')) {
     throw "Dear ImGui version validation failed."
+}
+
+$imguiDx12Header = Get-Content (Join-Path $vendor "ImGui\backends\imgui_impl_dx12.h") -Raw
+if ($imguiDx12Header -notmatch 'struct\s+ImGui_ImplDX12_InitInfo' -or
+    $imguiDx12Header -notmatch 'SrvDescriptorAllocFn' -or
+    $imguiDx12Header -notmatch 'SrvDescriptorFreeFn') {
+    throw "The checked-out Dear ImGui DX12 backend lacks the descriptor API required by BigBaseV2."
 }
 
 $luaVersionParts = $LuaVersion.Split('.')
@@ -153,4 +192,4 @@ Write-Host "  JSON        $JsonVersion"
 Write-Host "  MinHook     $MinHookVersion"
 Write-Host "  StackWalker $StackWalkerCommit"
 Write-Host "  Sol2        $Sol2Version"
-Write-Host "  Lua         $LuaVersion"
+Write-Host "  Lua         $LuaVersion ($LuaSha256)"
