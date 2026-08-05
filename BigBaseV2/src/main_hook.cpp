@@ -7,18 +7,26 @@
 
 namespace big
 {
+	namespace
+	{
+		[[nodiscard]] void* require_run_script_threads_target()
+		{
+			if (g_main_hook)
+				throw std::runtime_error("A main hook instance is already active.");
+
+			if (!g_pointers || !g_pointers->m_run_script_threads)
+				throw std::runtime_error("Cannot create the main hook without RunScriptThreads.");
+
+			return reinterpret_cast<void*>(g_pointers->m_run_script_threads);
+		}
+	}
+
 	main_hook::main_hook() :
 		m_run_script_threads_hook(
 			"Main script hook",
-			g_pointers ? reinterpret_cast<void*>(g_pointers->m_run_script_threads) : nullptr,
+			require_run_script_threads_target(),
 			reinterpret_cast<void*>(&run_script_threads))
 	{
-		if (!g_pointers || !g_pointers->m_run_script_threads)
-			throw std::runtime_error("Cannot create the main hook without RunScriptThreads.");
-
-		if (g_main_hook)
-			throw std::runtime_error("A main hook instance is already active.");
-
 		g_main_hook = this;
 	}
 
