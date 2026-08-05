@@ -1,6 +1,7 @@
 #pragma once
+
+#include <cstddef>
 #include <cstdint>
-#include "fwddec.hpp"
 
 namespace rage
 {
@@ -8,58 +9,75 @@ namespace rage
 	class atArray
 	{
 	public:
-		T *begin()
+		[[nodiscard]] T* begin() noexcept
 		{
 			return m_data;
 		}
 
-		T *end()
+		[[nodiscard]] T* end() noexcept
 		{
-			return m_data + m_size;
+			return m_data ? m_data + m_size : nullptr;
 		}
 
-		const T *begin() const
-		{
-			return m_data;
-		}
-
-		const T *end() const
-		{
-			return m_data + m_size;
-		}
-
-		T *data()
+		[[nodiscard]] const T* begin() const noexcept
 		{
 			return m_data;
 		}
 
-		const T *data() const
+		[[nodiscard]] const T* end() const noexcept
+		{
+			return m_data ? m_data + m_size : nullptr;
+		}
+
+		[[nodiscard]] T* data() noexcept
 		{
 			return m_data;
 		}
 
-		std::uint16_t size() const
+		[[nodiscard]] const T* data() const noexcept
+		{
+			return m_data;
+		}
+
+		[[nodiscard]] std::uint16_t size() const noexcept
 		{
 			return m_size;
 		}
 
-		std::uint16_t capacity() const
+		[[nodiscard]] std::uint16_t capacity() const noexcept
 		{
 			return m_capacity;
 		}
 
-		T &operator[](std::uint16_t index)
+		[[nodiscard]] bool empty() const noexcept
+		{
+			return m_size == 0;
+		}
+
+		[[nodiscard]] bool contains(const T& value) const
+		{
+			for (const auto& entry : *this)
+			{
+				if (entry == value)
+					return true;
+			}
+			return false;
+		}
+
+		T& operator[](std::size_t index) noexcept
 		{
 			return m_data[index];
 		}
 
-		const T &operator[](std::uint16_t index) const
+		const T& operator[](std::size_t index) const noexcept
 		{
 			return m_data[index];
 		}
-	private:
-		T *m_data;
-		std::uint16_t m_size;
-		std::uint16_t m_capacity;
+
+		T* m_data{};
+		std::uint16_t m_size{};
+		std::uint16_t m_capacity{};
 	};
+
+	static_assert(sizeof(atArray<std::uint32_t>) == 0x10);
 }
