@@ -28,6 +28,6 @@ namespace big::network
 	};
 
 	[[nodiscard]] bool join_service_ready() noexcept;
-	[[nodiscard]] bool queue_join_type(join_type type);
+	bool queue_join_type(join_type type);
 	[[nodiscard]] join_status current_join_status();
 }
