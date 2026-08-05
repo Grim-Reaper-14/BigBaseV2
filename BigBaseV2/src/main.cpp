@@ -6,6 +6,7 @@
 #include "hooking.hpp"
 #include "logger.hpp"
 #include "lua/lua_manager.hpp"
+#include "main_hook.hpp"
 #include "pointers.hpp"
 #include "renderer.hpp"
 #include "script_mgr.hpp"
@@ -49,6 +50,7 @@ namespace big
 			std::unique_ptr<renderer> renderer_instance;
 			std::unique_ptr<fiber_pool> fiber_pool_instance;
 			std::unique_ptr<hooking> hooking_instance;
+			std::unique_ptr<main_hook> main_hook_instance;
 
 			try
 			{
@@ -91,8 +93,13 @@ namespace big
 				g_lua_manager = std::make_unique<lua_manager>();
 				LOG_INFO("Sol2 Lua manager initialized.");
 
+				// Construct hooking first so MinHook remains initialized for the
+				// lifetime of the dedicated main hook.
 				hooking_instance = std::make_unique<hooking>();
-				LOG_INFO("Hooking initialized.");
+				LOG_INFO("Auxiliary hooking initialized.");
+
+				main_hook_instance = std::make_unique<main_hook>();
+				LOG_INFO("Central main hook initialized.");
 
 				g_script_mgr.add_script(std::make_unique<script>(&features::script_func));
 				g_script_mgr.add_script(std::make_unique<script>(&gui::script_func));
@@ -100,14 +107,16 @@ namespace big
 				LOG_INFO("Scripts registered.");
 
 				g_hooking->enable();
-				LOG_INFO("Hooking enabled.");
+				LOG_INFO("Auxiliary hooks enabled.");
+
+				g_main_hook->enable();
+				LOG_INFO("Central main hook enabled.");
 
 				while (g_running)
 				{
 					if (GetAsyncKeyState(g_configuration.values().unload_key) & 1)
 						g_running = false;
 
-					g_hooking->ensure_dynamic_hooks();
 					std::this_thread::sleep_for(10ms);
 				}
 			}
@@ -124,10 +133,16 @@ namespace big
 				MessageBoxA(nullptr, "An unknown fatal error occurred.", "BigBaseV2", MB_OK | MB_ICONERROR);
 			}
 
+			if (g_main_hook)
+			{
+				g_main_hook->disable();
+				LOG_INFO("Central main hook disabled.");
+			}
+
 			if (g_hooking)
 			{
 				g_hooking->disable();
-				LOG_INFO("Hooking disabled.");
+				LOG_INFO("Auxiliary hooks disabled.");
 			}
 
 			if (g_configuration.values().autosave)
@@ -146,6 +161,7 @@ namespace big
 			g_lua_manager.reset();
 			LOG_INFO("Sol2 Lua manager uninitialized.");
 
+			main_hook_instance.reset();
 			hooking_instance.reset();
 			fiber_pool_instance.reset();
 			renderer_instance.reset();
