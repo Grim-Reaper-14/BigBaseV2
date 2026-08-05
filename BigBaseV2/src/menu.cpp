@@ -1,6 +1,7 @@
 #include "menu.hpp"
 
 #include "menu/pages/lua.hpp"
+#include "menu/pages/network.hpp"
 #include "menu/pages/players.hpp"
 #include "menu/pages/self.hpp"
 #include "menu/pages/settings.hpp"
@@ -25,6 +26,7 @@ namespace big
 			case menu::page::vehicle: return "Vehicle";
 			case menu::page::teleport: return "Teleport";
 			case menu::page::world: return "World";
+			case menu::page::network: return "Network";
 			case menu::page::players: return "Players";
 			case menu::page::settings: return "Settings";
 			case menu::page::lua: return "Lua";
@@ -86,6 +88,7 @@ namespace big
 		ImGui::Spacing();
 		ImGui::TextDisabled("SESSION");
 		if (navigation_item("  World", m_current_page == page::world)) m_current_page = page::world;
+		if (navigation_item("  Network", m_current_page == page::network)) m_current_page = page::network;
 		if (navigation_item("  Players", m_current_page == page::players)) m_current_page = page::players;
 
 		ImGui::Spacing();
@@ -123,6 +126,7 @@ namespace big
 		case page::vehicle: menu_pages::draw_vehicle(); break;
 		case page::teleport: menu_pages::draw_teleport(); break;
 		case page::world: menu_pages::draw_world(); break;
+		case page::network: menu_pages::draw_network(); break;
 		case page::players: menu_pages::draw_players(); break;
 		case page::settings: menu_pages::draw_settings(); break;
 		case page::lua: menu_pages::draw_lua(); break;
