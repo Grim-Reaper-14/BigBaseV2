@@ -16,7 +16,7 @@ workspace "BigBaseV2"
   IncludeDir["json"] = "vendor/json/single_include"
   IncludeDir["MinHook"] = "vendor/MinHook/include"
   IncludeDir["ImGui"] = "vendor/ImGui"
-  IncludeDir["ImGuiImpl"] = "vendor/ImGui/backends"
+  IncludeDir["ImGuiImpl"] = "vendor/ImGui/examples"
   IncludeDir["StackWalker"] = "vendor/StackWalker/Main/StackWalker"
   IncludeDir["Lua"] = "vendor/lua/src"
   IncludeDir["Sol2"] = "vendor/sol2/include"
@@ -76,16 +76,15 @@ workspace "BigBaseV2"
       "vendor/%{prj.name}/imgui.cpp",
       "vendor/%{prj.name}/imgui_demo.cpp",
       "vendor/%{prj.name}/imgui_draw.cpp",
-      "vendor/%{prj.name}/imgui_tables.cpp",
       "vendor/%{prj.name}/imgui_widgets.cpp",
-      "vendor/%{prj.name}/backends/imgui_impl_dx12.cpp",
-      "vendor/%{prj.name}/backends/imgui_impl_win32.cpp"
+      "vendor/%{prj.name}/examples/imgui_impl_dx12.cpp",
+      "vendor/%{prj.name}/examples/imgui_impl_win32.cpp"
     }
 
     includedirs
     {
       "vendor/%{prj.name}",
-      "vendor/%{prj.name}/backends"
+      "vendor/%{prj.name}/examples"
     }
     DeclareMSVCOptions()
     DeclareDebugOptions()
