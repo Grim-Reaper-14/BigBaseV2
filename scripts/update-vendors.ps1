@@ -131,9 +131,19 @@ if ($imguiHeader -notmatch ('#define\s+IMGUI_VERSION\s+"' + [regex]::Escape($ImG
     throw "Dear ImGui version validation failed."
 }
 
+$luaVersionParts = $LuaVersion.Split('.')
+if ($luaVersionParts.Count -ne 3) {
+    throw "Lua version '$LuaVersion' must contain major, minor, and release components."
+}
+
 $luaHeaderContent = Get-Content $luaHeader -Raw
-if ($luaHeaderContent -notmatch ('#define\s+LUA_VERSION_RELEASE\s+"' + [regex]::Escape($LuaVersion) + '"')) {
-    throw "Lua version validation failed."
+$luaMajorPattern = '#define\s+LUA_VERSION_MAJOR\s+"' + [regex]::Escape($luaVersionParts[0]) + '"'
+$luaMinorPattern = '#define\s+LUA_VERSION_MINOR\s+"' + [regex]::Escape($luaVersionParts[1]) + '"'
+$luaReleasePattern = '#define\s+LUA_VERSION_RELEASE\s+"' + [regex]::Escape($luaVersionParts[2]) + '"'
+if ($luaHeaderContent -notmatch $luaMajorPattern -or
+    $luaHeaderContent -notmatch $luaMinorPattern -or
+    $luaHeaderContent -notmatch $luaReleasePattern) {
+    throw "Lua version validation failed. Expected $LuaVersion in $luaHeader."
 }
 
 Write-Host "Vendor dependencies are ready:" -ForegroundColor Green
