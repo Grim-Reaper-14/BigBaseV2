@@ -21,7 +21,7 @@ namespace big::gta_util
 	[[nodiscard]] inline CPlayerInfo* get_local_playerinfo() noexcept
 	{
 		if (auto* ped = get_local_ped())
-			return ped->m_playerinfo;
+			return ped->player_info();
 
 		return nullptr;
 	}
