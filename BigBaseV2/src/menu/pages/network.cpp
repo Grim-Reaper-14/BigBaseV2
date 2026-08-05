@@ -1,6 +1,7 @@
 #include "network.hpp"
 #include "../widgets.hpp"
 #include "../../menu.hpp"
+#include "../../network/join.hpp"
 #include "../../pointers.hpp"
 
 #include <imgui.h>
@@ -11,7 +12,7 @@ namespace big::menu_pages
 	{
 		menu_ui::page_title(
 			"Network",
-			"Inspect the current GTA V Enhanced session, network runtime, and player-roster availability.");
+			"Inspect the current GTA V Enhanced session, switch session types, and view network runtime health.");
 
 		const bool pointers_ready = g_pointers != nullptr;
 		const bool session_started = pointers_ready &&
@@ -30,6 +31,68 @@ namespace big::menu_pages
 
 			if (ImGui::Button("Open Player Roster", ImVec2(180.0f, 0.0f)))
 				g_menu.m_current_page = menu::page::players;
+		}
+		menu_ui::end_section();
+
+		ImGui::Spacing();
+		if (menu_ui::begin_section("OnlineSessions", "Online Sessions", 285.0f))
+		{
+			const bool service_ready = network::join_service_ready();
+			menu_ui::status_badge(
+				service_ready ? "Session transition service ready" : "Session transition service unavailable",
+				service_ready);
+			ImGui::TextDisabled("Join a new session type:");
+			ImGui::Spacing();
+
+			ImGui::BeginDisabled(!service_ready);
+
+			if (ImGui::Button("Public", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::join_public);
+			ImGui::SameLine();
+			if (ImGui::Button("New Public", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::new_public);
+			ImGui::SameLine();
+			if (ImGui::Button("Solo", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::solo);
+
+			if (ImGui::Button("Invite Only", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::invite_only);
+			ImGui::SameLine();
+			if (ImGui::Button("Closed Friends", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::closed_friends);
+			ImGui::SameLine();
+			if (ImGui::Button("Find Friend", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::find_friend);
+
+			if (ImGui::Button("Crew", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::crew);
+			ImGui::SameLine();
+			if (ImGui::Button("Closed Crew", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::closed_crew);
+			ImGui::SameLine();
+			if (ImGui::Button("Join Crew", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::join_crew);
+
+			if (ImGui::Button("SC TV", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::sc_tv);
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.15f, 0.15f, 1.0f));
+			if (ImGui::Button("Leave Online", ImVec2(110.0f, 0.0f)))
+				network::queue_join_type(network::join_type::leave_online);
+			ImGui::PopStyleColor();
+
+			ImGui::EndDisabled();
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			const auto status = network::current_join_status();
+			menu_ui::status_badge(status.message.c_str(), status.success);
+			if (status.pending)
+				ImGui::TextDisabled("The request will run on the next script-fiber tick.");
+
+			ImGui::TextDisabled(
+				"Direct Rockstar ID or username joining is not enabled without a verified session-by-handle backend.");
 		}
 		menu_ui::end_section();
 
