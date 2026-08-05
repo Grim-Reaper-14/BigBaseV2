@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""Generate BigBaseV2/src/crossmap.hpp from build-specific mapping data.
-
-Accepted input formats:
-- JSON list: [["0xOLD", "0xNEW"], ...]
-- JSON object: {"0xOLD": "0xNEW", ...}
-- CSV/TXT: OLD_HASH,NEW_HASH (comments beginning with # are ignored)
-
-This project targets GTA5_Enhanced.exe. The importer requires Enhanced edition
-metadata and refuses Legacy/generic build labels.
-"""
+"""Import a reviewed GTA V Enhanced old-hash/current-hash mapping table."""
 
 from __future__ import annotations
 
@@ -16,6 +7,7 @@ import argparse
 import csv
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -25,13 +17,15 @@ NATIVE_HASH_RE = re.compile(r"invoke<[^>]+>\(\s*(0x[0-9A-Fa-f]{1,16})")
 ENHANCED_BUILD_RE = re.compile(r"enhanced-[A-Za-z0-9._-]+", re.IGNORECASE)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Mapping:
     original: int
     current: int
 
 
 def parse_hash(value: object) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"Invalid native hash: {value!r}")
     if isinstance(value, int):
         result = value
     elif isinstance(value, str) and HASH_RE.fullmatch(value.strip()):
@@ -45,14 +39,14 @@ def parse_hash(value: object) -> int:
 
 
 def read_json(path: Path) -> list[Mapping]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    items: Iterable[tuple[object, object]]
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    items: Iterable[object]
     if isinstance(data, dict):
         items = data.items()
     elif isinstance(data, list):
         items = data
     else:
-        raise ValueError("JSON crossmap must be an object or a list of pairs")
+        raise ValueError("JSON crossmap must be an object or a list of pairs.")
 
     mappings: list[Mapping] = []
     for item in items:
@@ -71,18 +65,22 @@ def read_delimited(path: Path) -> list[Mapping]:
                 continue
             row = next(csv.reader([line]))
             if len(row) != 2:
-                raise ValueError(f"Line {line_number}: expected two comma-separated hashes")
+                raise ValueError(
+                    f"Line {line_number}: expected two comma-separated hashes."
+                )
             mappings.append(Mapping(parse_hash(row[0].strip()), parse_hash(row[1].strip())))
     return mappings
 
 
 def read_mappings(path: Path) -> list[Mapping]:
+    if not path.is_file():
+        raise ValueError(f"Mapping input was not found: {path}")
     return read_json(path) if path.suffix.lower() == ".json" else read_delimited(path)
 
 
-def validate(mappings: list[Mapping]) -> list[Mapping]:
+def validate(mappings: list[Mapping], expected_count: int | None) -> list[Mapping]:
     if not mappings:
-        raise ValueError("Crossmap contains no mappings")
+        raise ValueError("Crossmap contains no mappings.")
 
     originals: dict[int, int] = {}
     for mapping in mappings:
@@ -90,41 +88,57 @@ def validate(mappings: list[Mapping]) -> list[Mapping]:
         if previous is not None and previous != mapping.current:
             raise ValueError(
                 f"Original hash 0x{mapping.original:016X} maps to both "
-                f"0x{previous:016X} and 0x{mapping.current:016X}"
+                f"0x{previous:016X} and 0x{mapping.current:016X}."
             )
         originals[mapping.original] = mapping.current
 
-    return [Mapping(original, current) for original, current in sorted(originals.items())]
+    result = [Mapping(original, current) for original, current in sorted(originals.items())]
+    if expected_count is not None and len(result) != expected_count:
+        raise ValueError(
+            f"Expected {expected_count} unique mappings but found {len(result)}."
+        )
+    return result
 
 
 def validate_target(edition: str, executable: str, game_build: str) -> None:
     if edition.lower() != "enhanced":
-        raise ValueError("This BigBaseV2 branch only accepts --edition enhanced")
+        raise ValueError("This BigBaseV2 branch only accepts --edition enhanced.")
     if executable.lower() != "gta5_enhanced.exe":
-        raise ValueError("Expected --executable GTA5_Enhanced.exe")
+        raise ValueError("Expected --executable GTA5_Enhanced.exe.")
     if not ENHANCED_BUILD_RE.fullmatch(game_build):
-        raise ValueError("--game-build must begin with enhanced-, for example enhanced-3717")
+        raise ValueError(
+            "--game-build must begin with enhanced-, for example enhanced-3717."
+        )
 
 
 def native_hashes(path: Path) -> set[int]:
     if not path.exists():
         return set()
-    return {int(match, 16) for match in NATIVE_HASH_RE.findall(path.read_text(encoding="utf-8"))}
+    content = path.read_text(encoding="utf-8", errors="strict")
+    return {int(match, 16) for match in NATIVE_HASH_RE.findall(content)}
+
+
+def cpp_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
 
 
 def render(mappings: list[Mapping], game_build: str, source: str, executable: str) -> str:
     rows = "\n".join(
-        f"\t\t{{ 0x{item.original:016X}, 0x{item.current:016X} }}," for item in mappings
+        f"\t\t{{ 0x{item.original:016X}, 0x{item.current:016X} }},"
+        for item in mappings
     )
     return f'''#pragma once
 #include "gta/natives.hpp"
 
+// Generated by tools/natives/import_crossmap.py. Do not edit by hand.
+// mapping-count: {len(mappings)}
+
 namespace big
 {{
 \tinline constexpr const char* g_crossmap_edition = "enhanced";
-\tinline constexpr const char* g_crossmap_executable = "{executable}";
-\tinline constexpr const char* g_crossmap_game_build = "{game_build}";
-\tinline constexpr const char* g_crossmap_source = "{source}";
+\tinline constexpr const char* g_crossmap_executable = "{cpp_string(executable)}";
+\tinline constexpr const char* g_crossmap_game_build = "{cpp_string(game_build)}";
+\tinline constexpr const char* g_crossmap_source = "{cpp_string(source)}";
 \tinline constexpr const rage::scrNativeMapping g_crossmap[]
 \t{{
 {rows}
@@ -133,8 +147,19 @@ namespace big
 '''
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
+def write_if_changed(path: Path, content: str) -> bool:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file() and path.read_text(encoding="utf-8") == content:
+        return False
+
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(content, encoding="utf-8", newline="\n")
+    temporary.replace(path)
+    return True
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Build-specific JSON/CSV mapping file")
     parser.add_argument("--output", type=Path, default=Path("BigBaseV2/src/crossmap.hpp"))
     parser.add_argument("--natives", type=Path, default=Path("BigBaseV2/src/natives.hpp"))
@@ -142,11 +167,18 @@ def main() -> int:
     parser.add_argument("--executable", default="GTA5_Enhanced.exe")
     parser.add_argument("--game-build", required=True, help="Example: enhanced-3717")
     parser.add_argument("--source", required=True, help="Mapping source/version description")
+    parser.add_argument("--expected-count", type=int)
     parser.add_argument("--allow-missing", action="store_true")
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    if args.expected_count is not None and args.expected_count <= 0:
+        raise ValueError("--expected-count must be greater than zero.")
 
     validate_target(args.edition, args.executable, args.game_build)
-    mappings = validate(read_mappings(args.input))
+    mappings = validate(read_mappings(args.input), args.expected_count)
     mapped_hashes = {mapping.original for mapping in mappings}
     wrappers = native_hashes(args.natives)
     missing = sorted(wrappers - mapped_hashes)
@@ -159,16 +191,22 @@ def main() -> int:
 
     if missing and not args.allow_missing:
         preview = ", ".join(f"0x{value:016X}" for value in missing[:20])
-        raise SystemExit(f"Crossmap does not cover natives.hpp. First missing hashes: {preview}")
+        raise RuntimeError(
+            f"Crossmap does not cover native wrappers. First missing hashes: {preview}"
+        )
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
+    changed = write_if_changed(
+        args.output,
         render(mappings, args.game_build, args.source, args.executable),
-        encoding="utf-8",
     )
-    print(f"Wrote {args.output}")
+    action = "Wrote" if changed else "Validated"
+    print(f"{action} {args.output}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        raise SystemExit(1)
