@@ -2,6 +2,7 @@
 #include "gui.hpp"
 #include "menu.hpp"
 #include "menu/pages/self.hpp"
+#include "menu/pages/vehicle.hpp"
 #include "menu/runtime.hpp"
 #include "menu/widgets.hpp"
 #include "natives.hpp"
@@ -104,6 +105,7 @@ namespace big
 	void gui::script_on_tick()
 	{
 		menu_pages::tick_self();
+		menu_pages::tick_vehicle();
 
 		if (g_gui.m_opened && menu_runtime::disable_game_controls.load(std::memory_order_relaxed))
 			CONTROLS::DISABLE_ALL_CONTROL_ACTIONS(0);
