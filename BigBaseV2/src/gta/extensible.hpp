@@ -1,11 +1,8 @@
 #pragma once
 
-#include "joaat.hpp"
 #include "ref_aware.hpp"
 
 #include <cstdint>
-#include <string_view>
-#include <typeinfo>
 
 namespace rage
 {
@@ -27,29 +24,33 @@ namespace rage
 	class fwExtensibleBase : public fwRefAwareBase
 	{
 	public:
-		virtual bool is_of_type(std::uint32_t hash) = 0;
-		virtual const std::uint32_t& get_type() = 0;
-
-		template <typename T>
-		[[nodiscard]] bool is_of_type()
+		[[nodiscard]] fwExtension* find_extension(std::uint32_t id) noexcept
 		{
-			static const auto type_hash = []
+			for (auto* node = m_extension_container; node; node = node->m_next)
 			{
-				std::string_view name{typeid(T).name()};
-				if (name.compare(0, 6, "class ") == 0)
-					name.remove_prefix(6);
-				else if (name.compare(0, 7, "struct ") == 0)
-					name.remove_prefix(7);
-				return rage::joaat(name);
-			}();
+				if (node->m_entry && node->m_entry->get_id() == id)
+					return node->m_entry;
+			}
 
-			return is_of_type(type_hash);
+			return nullptr;
+		}
+
+		[[nodiscard]] const fwExtension* find_extension(std::uint32_t id) const noexcept
+		{
+			for (auto* node = m_extension_container; node; node = node->m_next)
+			{
+				if (node->m_entry && node->m_entry->get_id() == id)
+					return node->m_entry;
+			}
+
+			return nullptr;
 		}
 
 		fwExtensionContainer* m_extension_container{}; // 0x10
 		void* m_extensible_unknown{};                   // 0x18
 	};
 
+	static_assert(sizeof(fwExtension) == 0x08);
 	static_assert(sizeof(fwExtensionContainer) == 0x10);
 	static_assert(sizeof(fwExtensibleBase) == 0x20);
 }
