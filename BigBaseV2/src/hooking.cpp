@@ -1,42 +1,18 @@
 #include "common.hpp"
-#include "function_types.hpp"
-#include "gta/array.hpp"
-#include "gta/player.hpp"
-#include "gta/script_thread.hpp"
 #include "gui.hpp"
 #include "hooking.hpp"
 #include "logger.hpp"
 #include "memory/module.hpp"
-#include "natives.hpp"
 #include "pointers.hpp"
 #include "renderer.hpp"
-#include "script_mgr.hpp"
 
 #include <MinHook.h>
 
 namespace big
 {
-	namespace
-	{
-		GtaThread* find_script_thread(rage::joaat_t hash)
-		{
-			if (!g_pointers || !g_pointers->m_script_threads)
-				return nullptr;
-
-			for (auto* thread : *g_pointers->m_script_threads)
-			{
-				if (thread && thread->m_context.m_thread_id && thread->m_handler && thread->m_script_hash == hash)
-					return thread;
-			}
-
-			return nullptr;
-		}
-	}
-
 	hooking::hooking() :
 		m_swapchain_hook(*g_pointers->m_swapchain, hooks::swapchain_num_funcs),
 		m_set_cursor_pos_hook("SetCursorPos", memory::module("user32.dll").get_export("SetCursorPos").as<void*>(), &hooks::set_cursor_pos),
-		m_run_script_threads_hook("Script hook", g_pointers->m_run_script_threads, &hooks::run_script_threads),
 		m_convert_thread_to_fiber_hook("ConvertThreadToFiber", memory::module("kernel32.dll").get_export("ConvertThreadToFiber").as<void*>(), &hooks::convert_thread_to_fiber)
 	{
 		m_swapchain_hook.hook(hooks::swapchain_present_index, &hooks::swapchain_present);
@@ -73,12 +49,26 @@ namespace big
 		}
 		m_original_wndproc = reinterpret_cast<WNDPROC>(previous);
 
-		m_set_cursor_pos_hook.enable();
-		m_run_script_threads_hook.enable();
-		m_convert_thread_to_fiber_hook.enable();
-
-		m_enabled = true;
-		ensure_dynamic_hooks();
+		try
+		{
+			m_set_cursor_pos_hook.enable();
+			m_convert_thread_to_fiber_hook.enable();
+			m_enabled = true;
+		}
+		catch (...)
+		{
+			m_set_cursor_pos_hook.disable();
+			if (m_original_wndproc)
+			{
+				SetWindowLongPtrW(
+					g_pointers->m_hwnd,
+					GWLP_WNDPROC,
+					reinterpret_cast<LONG_PTR>(m_original_wndproc));
+				m_original_wndproc = nullptr;
+			}
+			m_swapchain_hook.disable();
+			throw;
+		}
 	}
 
 	void hooking::disable() noexcept
@@ -87,15 +77,7 @@ namespace big
 			return;
 
 		m_enabled = false;
-
-		if (m_main_persistent_hook)
-		{
-			m_main_persistent_hook->disable();
-			m_main_persistent_hook.reset();
-		}
-
 		m_convert_thread_to_fiber_hook.disable();
-		m_run_script_threads_hook.disable();
 		m_set_cursor_pos_hook.disable();
 
 		if (m_original_wndproc && g_pointers && g_pointers->m_hwnd)
@@ -110,20 +92,6 @@ namespace big
 		m_swapchain_hook.disable();
 	}
 
-	void hooking::ensure_dynamic_hooks()
-	{
-		if (!m_enabled || m_main_persistent_hook)
-			return;
-
-		if (auto* main_persistent = find_script_thread(RAGE_JOAAT("main_persistent")))
-		{
-			m_main_persistent_hook = std::make_unique<vmt_hook>(main_persistent->m_handler, hooks::main_persistent_num_funcs);
-			m_main_persistent_hook->hook(hooks::main_persistent_dtor_index, &hooks::main_persistent_dtor);
-			m_main_persistent_hook->hook(hooks::main_persistent_is_networked_index, &hooks::main_persistent_is_networked);
-			m_main_persistent_hook->enable();
-		}
-	}
-
 	minhook_keepalive::minhook_keepalive()
 	{
 		const auto status = MH_Initialize();
@@ -136,14 +104,6 @@ namespace big
 		const auto status = MH_Uninitialize();
 		if (status != MH_OK && status != MH_ERROR_NOT_INITIALIZED)
 			LOG_ERROR("MinHook uninitialization failed with status {}.", static_cast<int>(status));
-	}
-
-	bool hooks::run_script_threads(std::uint32_t ops_to_execute)
-	{
-		if (g_running)
-			g_script_mgr.tick();
-
-		return g_hooking->m_run_script_threads_hook.get_original<functions::run_script_threads_t>()(ops_to_execute);
 	}
 
 	void* hooks::convert_thread_to_fiber(void* param)
@@ -191,18 +151,5 @@ namespace big
 			return TRUE;
 
 		return g_hooking->m_set_cursor_pos_hook.get_original<decltype(&set_cursor_pos)>()(x, y);
-	}
-
-	void hooks::main_persistent_dtor(CGameScriptHandler* handler, bool free_memory)
-	{
-		const auto original = g_hooking->m_main_persistent_hook->get_original<decltype(&main_persistent_dtor)>(main_persistent_dtor_index);
-		g_hooking->m_main_persistent_hook->disable();
-		g_hooking->m_main_persistent_hook.reset();
-		original(handler, free_memory);
-	}
-
-	bool hooks::main_persistent_is_networked(CGameScriptHandler*)
-	{
-		return g_pointers && g_pointers->m_is_session_started && *g_pointers->m_is_session_started;
 	}
 }
