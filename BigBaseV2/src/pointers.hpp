@@ -28,12 +28,37 @@ namespace big
 		std::uint32_t* m_screen_res_y{};
 		const char* m_game_version{};
 		const char* m_online_version{};
+		int* m_region_code{};
 
 		eGameState* m_game_state{};
 		bool* m_is_session_started{};
+		std::uint32_t* m_network_time{};
+		std::uint32_t* m_game_timer{};
 
 		CPedFactory** m_ped_factory{};
 		CNetworkPlayerMgr** m_network_player_mgr{};
+		PVOID m_network_object_mgr{};
+		PVOID m_network_session{};
+
+		PVOID m_ped_pool{};
+		PVOID m_vehicle_pool{};
+		PVOID m_object_pool{};
+
+		PVOID m_stats_mgr{};
+		PVOID m_stats_mp_character_mapping_data{};
+		int* m_has_gta_plus{};
+
+		PVOID m_dlc_manager{};
+		PVOID m_get_dlc_hash{};
+		PVOID m_game_data_hash{};
+		PVOID m_game_skeleton_update{};
+
+		PVOID m_queue_dependency{};
+		PVOID m_sig_scan_memory{};
+		PVOID m_script_vm{};
+
+		functions::handle_to_ptr_t m_handle_to_ptr{};
+		functions::ptr_to_handle_t m_ptr_to_handle{};
 
 		// GTA V Enhanced initializes native handlers through per-program native
 		// tables. The old registration-table lookup remains declared only until
