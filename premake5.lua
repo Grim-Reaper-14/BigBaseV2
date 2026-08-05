@@ -35,6 +35,8 @@ workspace "BigBaseV2"
     defines
     {
       "_CRT_SECURE_NO_WARNINGS",
+      "_HAS_DEPRECATED_RESULT_OF=1",
+      "_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING",
       "NOMINMAX",
       "WIN32_LEAN_AND_MEAN",
       "_WIN32_WINNT=0x0A00"
