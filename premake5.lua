@@ -20,7 +20,7 @@ workspace "BigBaseV2"
   IncludeDir["StackWalker"] = "vendor/StackWalker/Main/StackWalker/"
   
   CppVersion = "C++17"
-  MsvcToolset = "v142"
+  MsvcToolset = "v143"
   WindowsSdkVersion = "10.0"
   
   function DeclareMSVCOptions()

@@ -1,0 +1,13 @@
+<Project>
+  <!--
+	Disables Visual Studio's global vcpkg auto-integration for this repo.
+	BigBaseV2 vendors its own copies of third-party libraries (e.g. ImGui) under
+	the vendor/ directory. If a system-wide vcpkg installation also has matching
+	packages installed (e.g. imgui), VS's automatic vcpkg linking pulls those in
+	too, causing LNK2005 "already defined" errors between the vendored static
+	libs and the vcpkg-provided ones.
+  -->
+  <PropertyGroup>
+	<VcpkgEnabled>false</VcpkgEnabled>
+  </PropertyGroup>
+</Project>

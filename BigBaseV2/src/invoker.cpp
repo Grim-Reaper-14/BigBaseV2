@@ -28,18 +28,28 @@ namespace big
 		m_call_context.reset();
 	}
 
+	static bool invoke_native_handler_safe(rage::scrNativeHandler handler, native_call_context* context)
+	{
+		__try
+		{
+			handler(context);
+			g_pointers->m_fix_vectors(context);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
 	void native_invoker::end_call(rage::scrNativeHash hash)
 	{
 		if (auto it = m_handler_cache.find(hash); it != m_handler_cache.end())
 		{
 			rage::scrNativeHandler handler = it->second;
 
-			__try
-			{
-				handler(&m_call_context);
-				g_pointers->m_fix_vectors(&m_call_context);
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			if (!invoke_native_handler_safe(handler, &m_call_context))
 			{
 				LOG_ERROR("Exception caught while trying to call 0x{:X} native.", hash);
 			}
