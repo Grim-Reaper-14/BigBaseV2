@@ -68,7 +68,7 @@ namespace big
 
 		if (!legacy_native_lookup_ready())
 		{
-			LOG_WARNING("Enhanced pointers resolved. Legacy native lookup is disabled; the native invoker still needs the Enhanced per-program native-table port.");
+			LOG_INFO("Enhanced pointers resolved. Legacy native lookup is disabled; the native invoker still needs the Enhanced per-program native-table port.");
 		}
 
 		g_pointers = this;
