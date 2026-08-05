@@ -71,7 +71,7 @@ workspace "BigBaseV2"
       "vendor/%{prj.name}/imgui_draw.cpp",
       "vendor/%{prj.name}/imgui_tables.cpp",
       "vendor/%{prj.name}/imgui_widgets.cpp",
-      "vendor/%{prj.name}/backends/imgui_impl_dx11.cpp",
+      "vendor/%{prj.name}/backends/imgui_impl_dx12.cpp",
       "vendor/%{prj.name}/backends/imgui_impl_win32.cpp"
     }
 
@@ -158,7 +158,11 @@ workspace "BigBaseV2"
       "dbghelp",
       "version",
       "windowscodecs",
-      "ole32"
+      "ole32",
+      "d3d12",
+      "dxgi",
+      "dxguid",
+      "d3dcompiler"
     }
 
     pchheader "%{PrecompiledHeaderInclude}"
