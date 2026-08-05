@@ -128,6 +128,8 @@ namespace big
 			iterator->second(&m_call_context);
 			if (g_pointers && g_pointers->m_fix_vectors)
 				g_pointers->m_fix_vectors(&m_call_context);
+			else
+				m_call_context.fix_vectors();
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
