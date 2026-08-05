@@ -30,9 +30,15 @@ namespace rage
 
 	class netGameEvent;
 	class netEventMgr;
-	
 	class netObject;
 	class netObjectMgrBase;
+
+	class rlGamerHandle;
+	class rlSessionInfo;
+	class rlSessionByGamerTaskResult;
+	struct rlTaskStatus;
+	class rlGetAvatarsContext;
+	struct rlGetAvatarsPlayerList;
 
 	class scrNativeCallContext;
 	class scrNativeRegistration;
@@ -65,4 +71,5 @@ class CVehicleFactory;
 
 class CNetGamePlayer;
 class CNetworkPlayerMgr;
+class CNetworkSession;
 class CPlayerInfo;
