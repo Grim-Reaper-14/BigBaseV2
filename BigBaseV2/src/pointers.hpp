@@ -56,7 +56,6 @@ namespace big
 		const char* m_online_version{};
 		int* m_region_code{};
 
-		eGameState* m_game_state{};
 		bool* m_is_session_started{};
 		std::uint32_t* m_network_time{};
 		std::uint32_t* m_game_timer{};
