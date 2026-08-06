@@ -32,11 +32,6 @@ namespace big
 
 		memory::pattern_batch required_batch;
 
-		required_batch.add("Game state", "83 3D ? ? ? ? ? 0F 85 ? ? ? ? BA ? 00", [this](memory::handle pointer)
-		{
-			m_game_state = pointer.add(2).rip().add(1).as<eGameState*>();
-		});
-
 		required_batch.add("Swapchain and command queue", "72 C7 EB 02 31 C0 8B 0D", [this](memory::handle pointer)
 		{
 			m_command_queue = pointer.add(0x1A).add(3).rip().as<ID3D12CommandQueue**>();
@@ -253,7 +248,7 @@ namespace big
 
 	bool pointers::core_ready() const noexcept
 	{
-		return m_hwnd && m_hwnd_ptr && m_game_state && m_is_session_started && m_ped_factory;
+		return m_hwnd && m_hwnd_ptr && m_is_session_started && m_ped_factory;
 	}
 
 	bool pointers::renderer_ready() const noexcept
@@ -296,8 +291,6 @@ namespace big
 		std::vector<std::string> missing;
 		if (!m_hwnd_ptr || !m_hwnd)
 			missing.emplace_back("game window");
-		if (!m_game_state)
-			missing.emplace_back("game state");
 		if (!m_is_session_started)
 			missing.emplace_back("session state");
 		if (!m_ped_factory)
