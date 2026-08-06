@@ -27,6 +27,10 @@ namespace big
 			if (!m_command_queue)
 				throw std::runtime_error("The Enhanced D3D12 command queue pointer is null.");
 
+			const auto command_queue_desc = m_command_queue->GetDesc();
+			if (command_queue_desc.Type != D3D12_COMMAND_LIST_TYPE_DIRECT)
+				throw std::runtime_error("The Enhanced D3D12 command queue is not a DIRECT queue.");
+
 			IDXGISwapChain3* swapchain3{};
 			const auto swapchain_result = (*g_pointers->m_swapchain)->QueryInterface(IID_PPV_ARGS(&swapchain3));
 			if (FAILED(swapchain_result) || !swapchain3)
@@ -542,19 +546,9 @@ namespace big
 		if (!info || !info->UserData)
 			return;
 
-		auto* self = static_cast<renderer*>(info->UserData);
-		std::scoped_lock lock(self->m_srv_mutex);
-		if (self->m_free_srv_descriptors.empty())
-		{
+		auto* instance = static_cast<renderer*>(info->UserData);
+		if (!instance->reserve_srv_descriptor(*cpu_handle, *gpu_handle))
 			LOG_ERROR("The ImGui DX12 SRV descriptor heap is exhausted.");
-			return;
-		}
-
-		const auto index = self->m_free_srv_descriptors.back();
-		self->m_free_srv_descriptors.pop_back();
-		self->m_srv_descriptor_in_use[index] = true;
-		*cpu_handle = self->srv_cpu_handle(index);
-		*gpu_handle = self->srv_gpu_handle(index);
 	}
 
 	void renderer::free_srv_descriptor(
@@ -562,30 +556,9 @@ namespace big
 		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle,
 		D3D12_GPU_DESCRIPTOR_HANDLE)
 	{
-		if (!info || !info->UserData || !cpu_handle.ptr)
+		if (!info || !info->UserData)
 			return;
 
-		auto* self = static_cast<renderer*>(info->UserData);
-		if (!self->m_srv_heap || !self->m_srv_descriptor_size)
-			return;
-
-		const auto base = self->m_srv_heap->GetCPUDescriptorHandleForHeapStart();
-		if (cpu_handle.ptr < base.ptr)
-			return;
-
-		const auto offset = cpu_handle.ptr - base.ptr;
-		if (offset % self->m_srv_descriptor_size != 0)
-			return;
-
-		const auto index = static_cast<std::uint32_t>(offset / self->m_srv_descriptor_size);
-		if (index >= self->m_srv_descriptor_in_use.size())
-			return;
-
-		std::scoped_lock lock(self->m_srv_mutex);
-		if (!self->m_srv_descriptor_in_use[index])
-			return;
-
-		self->m_srv_descriptor_in_use[index] = false;
-		self->m_free_srv_descriptors.push_back(index);
+		static_cast<renderer*>(info->UserData)->release_srv_descriptor(cpu_handle);
 	}
 }
